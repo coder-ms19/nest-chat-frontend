@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserSearch } from './UserSearch';
-import { Plus, Users, MessageSquare, Home, LogOut, Search, UserPlus, Trash2, Settings, X } from 'lucide-react';
+import { Users, MessageSquare, Home, LogOut, Search, UserPlus, Settings, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface SidebarProps {
@@ -97,8 +97,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <button
                         onClick={() => setActiveTab('chats')}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === 'chats'
-                                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-600/30'
-                                : 'text-gray-400 hover:text-gray-200'
+                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-600/30'
+                            : 'text-gray-400 hover:text-gray-200'
                             }`}
                     >
                         <MessageSquare className="w-4 h-4" />
@@ -107,8 +107,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     <button
                         onClick={() => setActiveTab('explore')}
                         className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${activeTab === 'explore'
-                                ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-600/30'
-                                : 'text-gray-400 hover:text-gray-200'
+                            ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg shadow-blue-600/30'
+                            : 'text-gray-400 hover:text-gray-200'
                             }`}
                     >
                         <Users className="w-4 h-4" />

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { X, Users, Search, UserPlus, Check, Loader2 } from 'lucide-react';
 import api from '../../api';
 
@@ -49,7 +49,7 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ currentUserI
         try {
             await api.post('/conversations/group', {
                 name: groupName,
-                ownerId:currentUserId,
+                ownerId: currentUserId,
                 userIds: [currentUserId, ...selectedUsers]
             });
             onCreated();

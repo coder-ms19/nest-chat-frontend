@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '../ui/Button';
 import { MessageBubble } from './MessageBubble';
-import { Send, MoreVertical, Trash2, ArrowLeft, Info, UserPlus, Users, X, AlertTriangle } from 'lucide-react';
+import { Send, MoreVertical, Trash2, ArrowLeft, Info, UserPlus, Users, AlertTriangle } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { GroupDetailsModal } from './GroupDetailsModal';
 import api from '../../api';
@@ -113,8 +113,8 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ conversation, messages, onSe
                     )}
                     <div className="relative flex-shrink-0">
                         <div className={`w-11 h-11 md:w-12 md:h-12 rounded-2xl flex items-center justify-center text-white font-medium shadow-lg ring-2 ring-white/20 ${conversation.isGroup
-                                ? 'bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500'
-                                : 'bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500'
+                            ? 'bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500'
+                            : 'bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500'
                             }`}>
                             {conversation.isGroup ? <Users className="w-6 h-6" /> : title?.[0]?.toUpperCase()}
                         </div>
