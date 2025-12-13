@@ -88,18 +88,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isMe, isG
                             {/* Message Bubble */}
                             <div
                                 className={`
-                                    px-3 py-2 md:px-4 md:py-3 shadow-xl relative transition-all duration-200 backdrop-blur-sm
+                                    px-3 py-2 md:px-4 md:py-3 shadow-md relative transition-all duration-200 backdrop-blur-sm
                                     ${isMe
-                                        ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl rounded-tr-md'
-                                        : 'bg-gradient-to-br from-[#1e293b] to-[#1a2332] text-slate-100 border border-white/10 rounded-2xl rounded-tl-md'
+                                        ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl rounded-tr-sm'
+                                        : 'bg-gradient-to-br from-[#1e293b] to-[#253045] text-slate-200 border border-white/5 rounded-2xl rounded-tl-sm shadow-[0_4px_20px_-4px_rgba(0,0,0,0.3)]'
                                     }
-                                    ${isHovered ? 'shadow-2xl scale-[1.01]' : ''}
+                                    ${isHovered ? 'shadow-lg' : ''}
                                 `}
                             >
                                 {isEditing ? (
                                     <div className="flex flex-col gap-2 min-w-[180px] md:min-w-[200px]">
                                         <textarea
-                                            className="bg-black/30 text-white text-sm md:text-base rounded-xl px-3 py-2 outline-none border border-white/20 focus:border-white/40 transition-colors resize-none touch-manipulation"
+                                            className="bg-black/20 text-white text-sm md:text-base rounded-xl px-3 py-2 outline-none border border-white/10 focus:border-white/30 transition-colors resize-none touch-manipulation"
                                             value={editText}
                                             onChange={e => setEditText(e.target.value)}
                                             autoFocus
@@ -117,23 +117,23 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isMe, isG
                                         <div className="flex gap-2 justify-end">
                                             <button
                                                 onClick={() => setIsEditing(false)}
-                                                className="p-2 hover:bg-white/10 active:bg-white/20 rounded-lg transition-colors touch-manipulation"
+                                                className="p-1.5 hover:bg-white/10 active:bg-white/20 rounded-lg transition-colors touch-manipulation"
                                                 title="Cancel"
                                             >
-                                                <X size={16} />
+                                                <X size={14} />
                                             </button>
                                             <button
                                                 onClick={handleEdit}
                                                 disabled={loading}
-                                                className="p-2 hover:bg-white/10 active:bg-white/20 rounded-lg text-green-400 transition-colors disabled:opacity-50 touch-manipulation"
+                                                className="p-1.5 hover:bg-white/10 active:bg-white/20 rounded-lg text-green-400 transition-colors disabled:opacity-50 touch-manipulation"
                                                 title="Save"
                                             >
-                                                <Check size={16} />
+                                                <Check size={14} />
                                             </button>
                                         </div>
                                     </div>
                                 ) : (
-                                    <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap break-words">
+                                    <p className="text-[13px] md:text-[15px] leading-relaxed whitespace-pre-wrap break-words font-normal tracking-wide">
                                         {message.text}
                                     </p>
                                 )}

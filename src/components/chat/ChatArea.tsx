@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '../ui/Button';
 import { MessageBubble } from './MessageBubble';
-import { Send, MoreVertical, Trash2, ArrowLeft, Info, UserPlus, Users, AlertTriangle } from 'lucide-react';
+import { Send, MoreVertical, Trash2, ArrowLeft, Info, UserPlus, Users, AlertTriangle, Paperclip, Smile } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { GroupDetailsModal } from './GroupDetailsModal';
 import api from '../../api';
@@ -82,16 +82,24 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ conversation, messages, onSe
 
     if (!conversation) {
         return (
-            <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-br from-[#0f172a] to-[#0a0a0f] text-slate-500 gap-6 p-8">
-                <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-3xl blur-2xl opacity-20 animate-pulse" />
-                    <div className="relative w-32 h-32 rounded-3xl bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-white/10 flex items-center justify-center">
-                        <Send className="w-16 h-16 text-blue-500" />
-                    </div>
+            <div className="flex-1 flex flex-col items-center justify-center bg-[#0f172a] relative overflow-hidden">
+                {/* Background Animation */}
+                <div className="absolute inset-0 z-0">
+                    <div className="absolute top-[20%] left-[20%] w-72 h-72 bg-blue-600/10 rounded-full blur-[100px] animate-pulse" />
+                    <div className="absolute bottom-[20%] right-[20%] w-96 h-96 bg-purple-600/10 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '1s' }} />
                 </div>
-                <div className="text-center">
-                    <p className="text-xl font-bold text-white mb-2">Select a conversation</p>
-                    <p className="text-sm text-slate-400">Choose a chat from the sidebar to start messaging</p>
+
+                <div className="z-10 text-center p-8 max-w-md backdrop-blur-sm bg-white/5 rounded-3xl border border-white/10 shadow-2xl transform hover:scale-105 transition-transform duration-500">
+                    <div className="relative w-24 h-24 mx-auto mb-6">
+                        <div className="absolute inset-0 bg-gradient-to-tr from-blue-500 to-purple-500 rounded-full opacity-20 animate-ping" />
+                        <div className="relative w-full h-full bg-gradient-to-tr from-blue-600 to-purple-600 rounded-full flex items-center justify-center shadow-lg shadow-blue-500/30">
+                            <Send className="w-10 h-10 text-white transform -rotate-12 ml-1 mt-1" />
+                        </div>
+                    </div>
+                    <h2 className="text-3xl font-bold text-white mb-3 tracking-tight">Welcome to Chat</h2>
+                    <p className="text-slate-400 leading-relaxed">
+                        Select a conversation from the sidebar or start a new one to begin messaging.
+                    </p>
                 </div>
             </div>
         );
@@ -215,28 +223,68 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ conversation, messages, onSe
             </div>
 
             {/* Messages - Mobile Optimized */}
-            <div className="flex-1 overflow-y-auto px-3 py-3 md:px-6 md:py-4 space-y-1 md:space-y-2 z-10 scrollbar-thin scrollbar-thumb-gray-700 overscroll-contain">
+            <div className="flex-1 overflow-y-auto px-3 py-3 md:px-6 md:py-4 space-y-1 md:space-y-0 z-10 scrollbar-thin scrollbar-thumb-gray-700 overscroll-contain">
                 <AnimatePresence initial={false}>
-                    {messages.map((msg, index) => (
-                        <MessageBubble
-                            key={msg.id || index}
-                            message={msg}
-                            isMe={msg.senderId === currentUser.id}
-                            isGroup={conversation.isGroup}
-                            onUpdate={onRefresh}
-                        />
-                    ))}
+                    {messages.map((msg, index) => {
+                        const isMe = msg.senderId === currentUser.id;
+                        const previousMessage = messages[index - 1];
+                        const showDateSeparator = !previousMessage ||
+                            new Date(msg.createdAt).toDateString() !== new Date(previousMessage.createdAt).toDateString();
+
+                        let dateLabel = '';
+                        if (showDateSeparator) {
+                            const today = new Date();
+                            const msgDate = new Date(msg.createdAt);
+                            const yesterday = new Date(today);
+                            yesterday.setDate(yesterday.getDate() - 1);
+
+                            if (msgDate.toDateString() === today.toDateString()) {
+                                dateLabel = 'Today';
+                            } else if (msgDate.toDateString() === yesterday.toDateString()) {
+                                dateLabel = 'Yesterday';
+                            } else {
+                                dateLabel = msgDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+                            }
+                        }
+
+                        return (
+                            <React.Fragment key={msg.id || index}>
+                                {showDateSeparator && (
+                                    <div className="flex justify-center my-4 md:my-6 sticky top-0 z-10">
+                                        <div className="bg-[#1e293b]/80 backdrop-blur-md border border-white/10 px-3 py-1 md:px-4 md:py-1.5 rounded-full shadow-lg">
+                                            <span className="text-[10px] md:text-xs font-medium text-slate-300">
+                                                {dateLabel}
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
+                                <MessageBubble
+                                    message={msg}
+                                    isMe={isMe}
+                                    isGroup={conversation.isGroup}
+                                    onUpdate={onRefresh}
+                                />
+                            </React.Fragment>
+                        );
+                    })}
                 </AnimatePresence>
                 <div ref={messagesEndRef} />
             </div>
 
-            {/* Input - Mobile Optimized with Auto-Growing Textarea */}
-            <div ref={inputContainerRef} className="p-2.5 md:p-4 bg-gradient-to-r from-blue-600/5 to-purple-600/5 backdrop-blur-xl border-t border-white/10 z-10 flex-shrink-0">
-                <div className="flex gap-2 md:gap-3 max-w-4xl mx-auto items-end">
+            {/* Input - Floating & Modern */}
+            <div ref={inputContainerRef} className="p-4 md:p-6 bg-transparent z-20 flex-shrink-0">
+                <div className="max-w-4xl mx-auto flex items-end gap-2 bg-[#1e293b]/80 backdrop-blur-xl border border-white/10 p-2 rounded-[2rem] shadow-2xl shadow-black/20">
+                    <button
+                        className="p-3 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-colors flex-shrink-0"
+                        title="Add attachment"
+                    >
+                        <Paperclip size={20} />
+                    </button>
+
                     <textarea
                         ref={textareaRef}
-                        className="flex-1 bg-[#0f172a] border border-white/10 text-white text-sm md:text-base rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all px-3 md:px-5 py-2.5 md:py-3 shadow-inner placeholder-gray-500 resize-none max-h-32 min-h-[42px] md:min-h-[46px] touch-manipulation"
-                        placeholder="Type your message..."
+                        className="flex-1 bg-transparent text-white text-sm md:text-base placeholder-slate-500 resize-none max-h-32 min-h-[24px] py-3 focus:outline-none scrollbar-hide"
+                        placeholder="Type a message..."
                         value={text}
                         onFocus={handleFocus}
                         onChange={(e) => {
@@ -252,15 +300,26 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ conversation, messages, onSe
                             }
                         }}
                         rows={1}
+                        style={{ height: 'auto' }}
                     />
-                    <Button
-                        onClick={handleSend}
-                        disabled={!text.trim()}
-                        className="rounded-2xl w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 active:scale-95 disabled:from-gray-600 disabled:to-gray-700 disabled:cursor-not-allowed shadow-lg shadow-blue-600/30 transform transition-all p-0 flex-shrink-0 touch-manipulation"
-                        aria-label="Send message"
-                    >
-                        <Send className="w-4 h-4 md:w-5 md:h-5 ml-0.5" />
-                    </Button>
+
+                    <div className="flex items-center gap-1">
+                        <button
+                            className="p-3 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-colors flex-shrink-0 md:block hidden"
+                            title="Emoji"
+                        >
+                            <Smile size={20} />
+                        </button>
+
+                        <Button
+                            onClick={handleSend}
+                            disabled={!text.trim()}
+                            className="rounded-full w-10 h-10 md:w-11 md:h-11 flex items-center justify-center bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 active:scale-95 disabled:from-gray-700 disabled:to-gray-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-600/20 transform transition-all p-0 flex-shrink-0 ml-1"
+                            aria-label="Send message"
+                        >
+                            <Send className="w-4 h-4 md:w-5 md:h-5 ml-0.5 text-white" />
+                        </Button>
+                    </div>
                 </div>
             </div>
 

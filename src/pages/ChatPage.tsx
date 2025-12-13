@@ -141,7 +141,7 @@ export default function ChatPage() {
     if (!user) return null;
 
     return (
-        <div className="flex h-screen bg-[#0f172a] font-sans overflow-hidden">
+        <div className="flex h-screen bg-gradient-to-br from-[#1e293b] to-[#0f172a] font-sans overflow-hidden">
             {/* Sidebar - Hidden on mobile when chat is active */}
             <div className={`
                 ${isMobileSidebarOpen || !activeConversationId ? 'flex' : 'hidden'} 

@@ -117,7 +117,7 @@ export default function ChatConversationPage() {
     if (!user || !conversation) return null;
 
     return (
-        <div className="flex h-screen bg-[#0f172a] font-sans overflow-hidden">
+        <div className="flex h-screen bg-gradient-to-br from-[#1e293b] to-[#0f172a] font-sans overflow-hidden">
             <div className="w-full flex flex-col min-w-0">
                 <ChatArea
                     conversation={conversation}
