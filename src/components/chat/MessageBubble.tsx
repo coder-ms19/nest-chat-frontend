@@ -64,14 +64,14 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isMe, isG
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
                 transition={{ duration: 0.2 }}
-                className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} group mb-3`}
+                className={`flex w-full ${isMe ? 'justify-end' : 'justify-start'} group mb-2 md:mb-3`}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
             >
-                <div className={`flex gap-2 max-w-[80%] md:max-w-[75%] ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
+                <div className={`flex gap-1.5 md:gap-2 max-w-[85%] md:max-w-[75%] ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                     {/* Avatar for other users in group */}
                     {!isMe && isGroup && (
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold shadow-lg ring-2 ring-white/10">
+                        <div className="flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold shadow-lg ring-2 ring-white/10">
                             {senderInitial}
                         </div>
                     )}
@@ -79,7 +79,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isMe, isG
                     <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
                         {/* Sender Name in Group */}
                         {!isMe && isGroup && (
-                            <span className="text-xs font-semibold text-indigo-400 mb-1 ml-1 tracking-wide">
+                            <span className="text-[10px] md:text-xs font-semibold text-indigo-400 mb-0.5 md:mb-1 ml-1 tracking-wide">
                                 {senderName}
                             </span>
                         )}
@@ -88,18 +88,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isMe, isG
                             {/* Message Bubble */}
                             <div
                                 className={`
-                                    px-4 py-3 shadow-xl relative transition-all duration-200 backdrop-blur-sm
+                                    px-3 py-2 md:px-4 md:py-3 shadow-xl relative transition-all duration-200 backdrop-blur-sm
                                     ${isMe
                                         ? 'bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-2xl rounded-tr-md'
                                         : 'bg-gradient-to-br from-[#1e293b] to-[#1a2332] text-slate-100 border border-white/10 rounded-2xl rounded-tl-md'
                                     }
-                                    ${isHovered ? 'shadow-2xl scale-[1.02]' : ''}
+                                    ${isHovered ? 'shadow-2xl scale-[1.01]' : ''}
                                 `}
                             >
                                 {isEditing ? (
-                                    <div className="flex flex-col gap-2 min-w-[200px]">
+                                    <div className="flex flex-col gap-2 min-w-[180px] md:min-w-[200px]">
                                         <textarea
-                                            className="bg-black/30 text-white rounded-xl px-3 py-2 outline-none border border-white/20 focus:border-white/40 transition-colors resize-none"
+                                            className="bg-black/30 text-white text-sm md:text-base rounded-xl px-3 py-2 outline-none border border-white/20 focus:border-white/40 transition-colors resize-none touch-manipulation"
                                             value={editText}
                                             onChange={e => setEditText(e.target.value)}
                                             autoFocus
@@ -117,7 +117,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isMe, isG
                                         <div className="flex gap-2 justify-end">
                                             <button
                                                 onClick={() => setIsEditing(false)}
-                                                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                                                className="p-2 hover:bg-white/10 active:bg-white/20 rounded-lg transition-colors touch-manipulation"
                                                 title="Cancel"
                                             >
                                                 <X size={16} />
@@ -125,7 +125,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isMe, isG
                                             <button
                                                 onClick={handleEdit}
                                                 disabled={loading}
-                                                className="p-2 hover:bg-white/10 rounded-lg text-green-400 transition-colors disabled:opacity-50"
+                                                className="p-2 hover:bg-white/10 active:bg-white/20 rounded-lg text-green-400 transition-colors disabled:opacity-50 touch-manipulation"
                                                 title="Save"
                                             >
                                                 <Check size={16} />
@@ -133,30 +133,30 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isMe, isG
                                         </div>
                                     </div>
                                 ) : (
-                                    <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                                    <p className="text-sm md:text-base leading-relaxed whitespace-pre-wrap break-words">
                                         {message.text}
                                     </p>
                                 )}
                             </div>
 
-                            {/* Actions for My Messages */}
+                            {/* Actions for My Messages - Mobile Optimized */}
                             {isMe && !isEditing && isHovered && (
                                 <motion.div
                                     initial={{ opacity: 0, scale: 0.8 }}
                                     animate={{ opacity: 1, scale: 1 }}
-                                    className={`absolute -top-3 bg-gradient-to-br from-[#1e293b] to-[#0f172a] border border-white/20 rounded-xl shadow-2xl p-1 flex gap-1 ${isMe ? '-left-2 transform -translate-x-full' : '-right-2 transform translate-x-full'
+                                    className={`absolute -top-2 md:-top-3 bg-gradient-to-br from-[#1e293b] to-[#0f172a] border border-white/20 rounded-xl shadow-2xl p-1 flex gap-1 ${isMe ? '-left-1 md:-left-2 transform -translate-x-full' : '-right-1 md:-right-2 transform translate-x-full'
                                         }`}
                                 >
                                     <button
                                         onClick={() => setIsEditing(true)}
-                                        className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-lg transition-all hover:scale-110"
+                                        className="p-2 text-blue-400 hover:bg-blue-500/20 active:bg-blue-500/30 rounded-lg transition-all hover:scale-110 touch-manipulation"
                                         title="Edit message"
                                     >
                                         <Pencil size={14} />
                                     </button>
                                     <button
                                         onClick={handleDelete}
-                                        className="p-2 text-red-400 hover:bg-red-500/20 rounded-lg transition-all hover:scale-110"
+                                        className="p-2 text-red-400 hover:bg-red-500/20 active:bg-red-500/30 rounded-lg transition-all hover:scale-110 touch-manipulation"
                                         title="Delete message"
                                     >
                                         <Trash2 size={14} />
@@ -166,7 +166,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, isMe, isG
                         </div>
 
                         {/* Timestamp */}
-                        <span className={`text-[10px] mt-1 px-1 ${isMe ? 'text-blue-400/70' : 'text-gray-500'}`}>
+                        <span className={`text-[9px] md:text-[10px] mt-0.5 md:mt-1 px-1 ${isMe ? 'text-blue-400/70' : 'text-gray-500'}`}>
                             {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                     </div>

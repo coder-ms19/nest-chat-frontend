@@ -89,7 +89,7 @@ export default function Home() {
                                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                                         <span className="text-blue-400 font-medium">{user?.username}</span>
                                     </span>
-                                    <Link to="/chat">
+                                    <Link to="/conversations">
                                         <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 md:px-6 py-2 rounded-xl shadow-lg shadow-blue-600/30 transition-all duration-300 hover:scale-105 flex items-center gap-2">
                                             <MessageCircle className="w-4 h-4" />
                                             <span className="hidden sm:inline">Chat</span>
@@ -190,7 +190,7 @@ export default function Home() {
                             <ExternalLink className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
                         </a>
                         {isLoggedIn && (
-                            <Link to="/chat">
+                            <Link to="/conversations">
                                 <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 rounded-xl shadow-lg shadow-blue-600/30 transition-all duration-300 hover:scale-105 flex items-center gap-2">
                                     <MessageCircle className="w-5 h-5" />
                                     <span>Start Chatting</span>
@@ -291,7 +291,7 @@ export default function Home() {
                                 <p className="text-slate-400 mb-6 max-w-md mx-auto">
                                     Join the conversation and collaborate with other developers
                                 </p>
-                                <Link to="/chat">
+                                <Link to="/conversations">
                                     <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-10 py-4 rounded-xl shadow-lg shadow-blue-600/30 transition-all duration-300 hover:scale-105 text-lg flex items-center gap-2 mx-auto">
                                         <MessageCircle className="w-5 h-5" />
                                         <span>Open Chat</span>
