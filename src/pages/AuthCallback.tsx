@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { CheckCircle, Loader } from 'lucide-react';
+import { oauthService } from '../services';
 
 export default function AuthCallback() {
     const [searchParams] = useSearchParams();
@@ -15,11 +16,8 @@ export default function AuthCallback() {
 
         if (token && userStr) {
             try {
-                const user = JSON.parse(decodeURIComponent(userStr));
-
-                // Store token and user in localStorage
-                localStorage.setItem('token', token);
-                localStorage.setItem('user', JSON.stringify(user));
+                // Use OAuthService to handle the callback
+                oauthService.handleCallback(token, userStr);
 
                 setStatus('success');
                 setMessage('Authentication successful! Redirecting...');
@@ -29,7 +27,7 @@ export default function AuthCallback() {
                     navigate('/');
                 }, 1500);
             } catch (error) {
-                console.error('Error parsing user data:', error);
+                console.error('Error handling OAuth callback:', error);
                 setStatus('error');
                 setMessage('Authentication failed. Redirecting to login...');
 

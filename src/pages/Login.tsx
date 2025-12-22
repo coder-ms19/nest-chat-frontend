@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { LogIn, Mail, Lock, Eye, EyeOff, Sparkles, ArrowRight, Home } from 'lucide-react';
-import api from '../api';
+import { authService, oauthService } from '../services';
 import { Button } from '../components/ui/Button';
 
 export default function Login() {
@@ -19,18 +19,21 @@ export default function Login() {
         setLoading(true);
 
         try {
-            const res = await api.post('/auth/login', { email, password });
-            console.log('Login response:', res.data);
-
-            // Store accessToken from tokens object
-            localStorage.setItem('token', res.data.tokens.accessToken);
-            localStorage.setItem('user', JSON.stringify(res.data.user));
+            await authService.login({ email, password });
             navigate('/');
         } catch (err: any) {
             console.error('Login error:', err);
-            setError(err.response?.data?.message || 'Login failed. Please try again.');
+            setError(err.message || 'Login failed. Please try again.');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleOAuthLogin = (provider: 'google' | 'github') => {
+        if (provider === 'google') {
+            oauthService.loginWithGoogle();
+        } else {
+            oauthService.loginWithGithub();
         }
     };
 
@@ -234,7 +237,7 @@ export default function Login() {
                                 {/* Google Login */}
                                 <button
                                     type="button"
-                                    onClick={() => window.location.href = 'http://localhost:3000/auth/google'}
+                                    onClick={() => handleOAuthLogin('google')}
                                     className="w-full flex items-center justify-center gap-3 bg-white hover:bg-gray-50 text-gray-900 font-medium py-3 rounded-xl border border-gray-200 transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm"
                                 >
                                     <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -249,7 +252,7 @@ export default function Login() {
                                 {/* GitHub Login */}
                                 <button
                                     type="button"
-                                    onClick={() => window.location.href = 'http://localhost:3000/auth/github'}
+                                    onClick={() => handleOAuthLogin('github')}
                                     className="w-full flex items-center justify-center gap-3 bg-[#24292e] hover:bg-[#1a1e22] text-white font-medium py-3 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] shadow-sm"
                                 >
                                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">

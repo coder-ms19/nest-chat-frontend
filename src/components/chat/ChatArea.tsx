@@ -43,8 +43,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [deleteAction, setDeleteAction] = useState<'delete' | 'leave' | null>(null);
-    const [selectedAttachments, setSelectedAttachments] = useState<any[]>([]); // { url, publicId, resourceType, etc }
-    const [uploadingFiles, setUploadingFiles] = useState<{ id: string; previewUrl: string; progress: number }[]>([]);
+    const [selectedFiles, setSelectedFiles] = useState<{ id: string; file: File; previewUrl: string; type: 'IMAGE' | 'VIDEO' | 'FILE' }[]>([]);
     const [replyingTo, setReplyingTo] = useState<any>(null);
     const [previewMedia, setPreviewMedia] = useState<any | null>(null);
     const [showMediaUploadModal, setShowMediaUploadModal] = useState(false);
@@ -83,23 +82,56 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         }, 300);
     };
 
-    const handleSend = () => {
-        if (!text.trim() && selectedAttachments.length === 0 && uploadingFiles.length === 0) return;
+    const handleSend = async () => {
+        if (!text.trim() && selectedFiles.length === 0) return;
 
-        // Wait if still uploading
-        if (uploadingFiles.length > 0) {
-            alert('Please wait for files to finish uploading');
-            return;
-        }
+        const messageText = text;
+        const filesToUpload = [...selectedFiles];
 
-        onSendMessage(text, selectedAttachments.length > 0 ? selectedAttachments : undefined, replyingTo?.id);
+        // Clear input immediately for better UX
         setText('');
-        setSelectedAttachments([]);
+        setSelectedFiles([]);
         setReplyingTo(null);
         if (textareaRef.current) {
             textareaRef.current.style.height = 'auto';
         }
         playSendSound();
+
+        // If there are files, upload them first, then send message
+        if (filesToUpload.length > 0) {
+            try {
+                const uploadedAttachments = await Promise.all(
+                    filesToUpload.map(async (fileItem) => {
+                        const formData = new FormData();
+                        formData.append('file', fileItem.file);
+                        formData.append('folder', 'chat-messages');
+
+                        const res = await api.post('/upload/single', formData, {
+                            headers: { 'Content-Type': 'multipart/form-data' },
+                        });
+
+                        // Format attachment data to match backend expectations
+                        return {
+                            url: res.data.url,
+                            publicId: res.data.publicId,
+                            resourceType: res.data.resourceType || (fileItem.type === 'IMAGE' ? 'image' : fileItem.type === 'VIDEO' ? 'video' : 'raw'),
+                            mimeType: fileItem.file.type,
+                            size: fileItem.file.size,
+                            originalName: fileItem.file.name,
+                        };
+                    })
+                );
+
+                // Send message with uploaded attachments
+                onSendMessage(messageText, uploadedAttachments, replyingTo?.id);
+            } catch (error) {
+                console.error('Error uploading files:', error);
+                alert('Failed to upload files. Please try again.');
+            }
+        } else {
+            // Send text-only message
+            onSendMessage(messageText, undefined, replyingTo?.id);
+        }
     };
 
     const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -122,53 +154,32 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
         e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
     };
 
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = Array.from(e.target.files || []);
         if (files.length === 0) return;
 
-        // Reset input immediately
+        // Reset input
         e.target.value = '';
-        setShowMediaUploadModal(true);
 
-        files.forEach(async (file) => {
-            const tempId = Math.random().toString(36).substring(7);
+        // Create preview URLs and store files
+        const newFiles = files.map(file => {
+            const id = Math.random().toString(36).substring(7);
             const previewUrl = URL.createObjectURL(file);
+            const type = file.type.startsWith('image/') ? 'IMAGE' : file.type.startsWith('video/') ? 'VIDEO' : 'FILE';
 
-            // Add to uploading state
-            setUploadingFiles(prev => [...prev, { id: tempId, previewUrl, progress: 0, file: file, type: file.type.startsWith('image/') ? 'IMAGE' : file.type.startsWith('video/') ? 'VIDEO' : 'FILE' }]);
-
-            try {
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('folder', 'chat-messages');
-
-                const res = await api.post('/upload/single', formData, {
-                    headers: { 'Content-Type': 'multipart/form-data' },
-                    onUploadProgress: (progressEvent) => {
-                        const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
-                        setUploadingFiles(prev => prev.map(f => f.id === tempId ? { ...f, progress: percentCompleted } : f));
-                    }
-                });
-
-                // Move to selected attachments
-                setSelectedAttachments(prev => [...prev, { ...res.data, localId: tempId }]);
-                // Update uploadingFiles to 100% just in case
-                setUploadingFiles(prev => prev.map(f => f.id === tempId ? { ...f, progress: 100 } : f));
-            } catch (error) {
-                console.error('Error uploading file:', error);
-                alert(`Failed to upload ${file.name}`);
-                setUploadingFiles(prev => prev.filter(f => f.id !== tempId));
-            }
+            return { id, file, previewUrl, type };
         });
+
+        setSelectedFiles((prev:any) => [...prev, ...newFiles]);
+        setShowMediaUploadModal(true);
     };
 
-    const removeUploadingFile = (id: string) => {
-        setUploadingFiles(prev => {
+    const removeSelectedFile = (id: string) => {
+        setSelectedFiles(prev => {
             const file = prev.find(f => f.id === id);
             if (file) URL.revokeObjectURL(file.previewUrl);
             return prev.filter(f => f.id !== id);
         });
-        setSelectedAttachments(prev => prev.filter(a => a.localId !== id));
     };
 
 
@@ -551,7 +562,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
                         <Button
                             onClick={handleSend}
-                            disabled={(!text.trim() && selectedAttachments.length === 0 && uploadingFiles.length === 0) || uploadingFiles.length > 0}
+                            disabled={!text.trim() && selectedFiles.length === 0}
                             className="rounded-full w-10 h-10 flex items-center justify-center bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:from-blue-500 hover:to-blue-600 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-600/25 transform transition-all p-0 flex-shrink-0"
                             aria-label="Send message"
                         >
@@ -632,20 +643,18 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             {/* Media Upload (WhatsApp Style) Modal */}
             <MediaUploadModal
                 isOpen={showMediaUploadModal}
-                items={uploadingFiles as any}
+                items={selectedFiles as any}
                 onClose={() => {
                     setShowMediaUploadModal(false);
-                    setUploadingFiles([]);
-                    setSelectedAttachments([]);
+                    setSelectedFiles([]);
                 }}
-                onRemove={removeUploadingFile}
+                onRemove={removeSelectedFile}
                 onAddMore={() => fileInputRef.current?.click()}
                 caption={text}
                 onCaptionChange={setText}
                 onSend={() => {
                     handleSend();
                     setShowMediaUploadModal(false);
-                    setUploadingFiles([]);
                 }}
             />
         </div>
