@@ -7,6 +7,8 @@ import ChatConversationPage from './pages/ChatConversationPage';
 import Home from './pages/Home';
 import NotFound from './pages/NotFound';
 import PostsPage from './pages/PostsPage';
+import AuthCallback from './pages/AuthCallback';
+import ProfilePage from './pages/ProfilePage';
 
 function App() {
   return (
@@ -14,6 +16,11 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/auth/callback" element={<AuthCallback />} />
+
+      {/* Profile routes */}
+      <Route path="/profile" element={<ProfilePage />} />
+      <Route path="/profile/:id" element={<ProfilePage />} />
 
       {/* Posts page */}
       <Route path="/posts" element={<PostsPage />} />

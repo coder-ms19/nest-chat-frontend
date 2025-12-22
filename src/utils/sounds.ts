@@ -1,5 +1,6 @@
 // Sound notification utility for chat messages
-
+import messageAudio from "../assets/message.mp3"
+import notificationAudio from "../assets/notificatiion.wav"
 class SoundManager {
     private enabled: boolean = true;
     private sendAudio: HTMLAudioElement | null = null;
@@ -19,12 +20,14 @@ class SoundManager {
     private initializeAudioFiles() {
         try {
             // Create audio element for send sound (message.mp3)
-            this.sendAudio = new Audio('/sounds/message.mp3');
+            // this.sendAudio = new Audio('/sounds/message.mp3');
+            this.sendAudio = new Audio(messageAudio);
             this.sendAudio.volume = 0.5;
             this.sendAudio.preload = 'auto';
 
             // Create audio element for receive sound (notification.wav)
-            this.receiveAudio = new Audio('/sounds/notification.wav');
+            this.receiveAudio = new Audio(notificationAudio);
+            // this.receiveAudio = new Audio('/sounds/notification.wav');
             this.receiveAudio.volume = 0.6;
             this.receiveAudio.preload = 'auto';
 

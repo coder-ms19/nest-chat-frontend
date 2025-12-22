@@ -99,6 +99,7 @@ export function ChatArea({ conversation, messages, currentUser, socket }: ChatAr
                         isGroup={conversation.isGroup}
                         status={status}
                         onUpdate={handleRefresh}
+                        onReply={() => console.log('Reply clicked')}
                         showSenderInfo={shouldShowSenderInfo(message, messages[index - 1])}
                     />
                 );
@@ -171,6 +172,7 @@ export function ChatAreaWithAPI({ conversation, currentUser }: ChatAreaWithAPIPr
                         // Reload messages
                         console.log('Updating messages...');
                     }}
+                    onReply={() => console.log('Reply clicked')}
                 />
             ))}
         </div>

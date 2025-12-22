@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Users, Search, UserPlus, Check, Loader2 } from 'lucide-react';
 import api from '../../api';
+import Avatar from '../ui/Avatar';
 
 interface CreateGroupModalProps {
     currentUserId: string;
@@ -16,6 +17,10 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ currentUserI
     const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
     const [loading, setLoading] = useState(false);
     const [creating, setCreating] = useState(false);
+    const [groupIconUrl, setGroupIconUrl] = useState<string | null>(null);
+    const [tempIconFile, setTempIconFile] = useState<File | null>(null);
+    const [tempPreviewUrl, setTempPreviewUrl] = useState<string | null>(null);
+    const [uploadingIcon, setUploadingIcon] = useState(false);
 
     useEffect(() => {
         fetchUsers();
@@ -39,6 +44,44 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ currentUserI
         );
     };
 
+    const handleIconSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setTempIconFile(file);
+        setTempPreviewUrl(URL.createObjectURL(file));
+        setGroupIconUrl(null); // Clear previous if any
+    };
+
+    const handleIconUpload = async () => {
+        if (!tempIconFile) return;
+
+        setUploadingIcon(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', tempIconFile);
+            formData.append('folder', 'group-icons');
+
+            const res = await api.post('/upload/single', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+
+            setGroupIconUrl(res.data.url);
+            setTempPreviewUrl(null);
+            setTempIconFile(null);
+        } catch (error) {
+            console.error('Error uploading icon:', error);
+            alert('Failed to upload icon');
+        } finally {
+            setUploadingIcon(false);
+        }
+    };
+
+    const removeIconPreview = () => {
+        setTempIconFile(null);
+        setTempPreviewUrl(null);
+    };
+
     const handleCreate = async () => {
         if (!groupName.trim() || selectedUsers.length === 0) {
             alert('Please enter a group name and select at least one member');
@@ -50,7 +93,8 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ currentUserI
             await api.post('/conversations/group', {
                 name: groupName,
                 ownerId: currentUserId,
-                userIds: [currentUserId, ...selectedUsers]
+                userIds: [currentUserId, ...selectedUsers],
+                iconUrl: groupIconUrl
             });
             onCreated();
         } catch (e) {
@@ -84,9 +128,57 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ currentUserI
                 {/* Header - Improved Layout */}
                 <div className="p-4 md:p-5 lg:p-6 border-b border-white/10 bg-gradient-to-r from-blue-600/10 to-purple-600/10">
                     <div className="flex items-start justify-between mb-4 md:mb-5">
-                        <div className="flex items-start gap-3 md:gap-4 flex-1">
-                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shadow-lg flex-shrink-0">
-                                <Users className="w-6 h-6 md:w-7 md:h-7 text-white" />
+                        <div className="flex items-start gap-4 flex-1">
+                            <div className="relative group">
+                                <label className={`
+                                    w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-gradient-to-br from-blue-600/20 to-purple-600/20 
+                                    border-2 border-dashed border-white/20 flex items-center justify-center cursor-pointer 
+                                    hover:border-blue-500/50 transition-all overflow-hidden
+                                    ${(groupIconUrl || tempPreviewUrl) ? 'border-none' : ''}
+                                `}>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        className="hidden"
+                                        onChange={handleIconSelect}
+                                        disabled={uploadingIcon}
+                                    />
+                                    {(groupIconUrl || tempPreviewUrl) ? (
+                                        <img src={groupIconUrl || tempPreviewUrl || ''} alt="Group Icon" className={`w-full h-full object-cover ${tempPreviewUrl ? 'opacity-50' : ''}`} />
+                                    ) : (
+                                        <Users className="w-8 h-8 text-slate-500" />
+                                    )}
+
+                                    {uploadingIcon && (
+                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                                            <Loader2 className="w-6 h-6 text-white animate-spin" />
+                                        </div>
+                                    )}
+                                </label>
+
+                                {tempPreviewUrl && !uploadingIcon && (
+                                    <div className="absolute -bottom-2 -right-2 flex gap-1">
+                                        <button
+                                            onClick={handleIconUpload}
+                                            className="p-1.5 bg-green-600 rounded-lg text-white shadow-lg hover:bg-green-500 transition-colors"
+                                            title="Upload Icon"
+                                        >
+                                            <Check size={14} />
+                                        </button>
+                                        <button
+                                            onClick={removeIconPreview}
+                                            className="p-1.5 bg-red-600 rounded-lg text-white shadow-lg hover:bg-red-500 transition-colors"
+                                            title="Remove Preview"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+                                )}
+                                {groupIconUrl && (
+                                    <div className="absolute -bottom-2 -right-2 p-1.5 bg-blue-600 rounded-lg text-white shadow-lg flex items-center justify-center">
+                                        <Check size={14} />
+                                    </div>
+                                )}
                             </div>
                             <div className="flex-1 min-w-0">
                                 <h2 className="text-xl md:text-2xl font-bold text-white mb-1">Create Group</h2>
@@ -204,15 +296,12 @@ export const CreateGroupModal: React.FC<CreateGroupModalProps> = ({ currentUserI
                                     `}
                                 >
                                     {/* Avatar - Responsive sizing */}
-                                    <div className={`
-                                        w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center text-white font-bold shadow-lg transition-transform group-hover:scale-105 text-sm md:text-base
-                                        ${isSelected
-                                            ? 'bg-gradient-to-br from-blue-600 to-purple-600'
-                                            : 'bg-gradient-to-br from-slate-600 to-slate-700'
-                                        }
-                                    `}>
-                                        {user.username[0]?.toUpperCase()}
-                                    </div>
+                                    <Avatar
+                                        src={user.avatarUrl}
+                                        alt={user.username}
+                                        size="md"
+                                        className="w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl group-hover:scale-105"
+                                    />
 
                                     {/* User Info */}
                                     <div className="flex-1 min-w-0">

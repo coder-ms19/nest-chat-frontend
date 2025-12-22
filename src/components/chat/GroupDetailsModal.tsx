@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Users, Crown, UserMinus, Trash2, AlertTriangle, Loader2, Info, UserPlus, Search } from 'lucide-react';
+import { X, Users, Crown, UserMinus, Trash2, AlertTriangle, Loader2, Info, UserPlus, Search, Edit2, Image as ImageIcon, Check, Camera, LogOut } from 'lucide-react';
 import api from '../../api';
+import Avatar from '../ui/Avatar';
 
 interface GroupDetailsModalProps {
     conversation: any;
@@ -20,6 +21,15 @@ export const GroupDetailsModal: React.FC<GroupDetailsModalProps> = ({ conversati
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
     const [addingMembers, setAddingMembers] = useState(false);
+
+    // Edit states
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [newName, setNewName] = useState(conversation.name);
+    const [isEditingIcon, setIsEditingIcon] = useState(false);
+    const [newIconUrl, setNewIconUrl] = useState(conversation.iconUrl || '');
+    const [isUpdating, setIsUpdating] = useState(false);
+    const [tempIconFile, setTempIconFile] = useState<File | null>(null);
+    const [tempPreviewUrl, setTempPreviewUrl] = useState<string | null>(null);
 
     const isOwner = conversation.ownerId === currentUser.id;
 
@@ -60,6 +70,24 @@ export const GroupDetailsModal: React.FC<GroupDetailsModalProps> = ({ conversati
         } catch (e) {
             console.error(e);
             alert('Failed to delete group');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleLeaveGroup = async () => {
+        if (!window.confirm('Are you sure you want to leave this group?')) return;
+        setLoading(true);
+        try {
+            await api.post(`/conversations/${conversation.id}/remove-user`, {
+                userId: currentUser.id,
+                requesterId: currentUser.id
+            });
+            onClose();
+            window.location.reload();
+        } catch (e) {
+            console.error(e);
+            alert('Failed to leave group');
         } finally {
             setLoading(false);
         }
@@ -107,6 +135,111 @@ export const GroupDetailsModal: React.FC<GroupDetailsModalProps> = ({ conversati
         user.email.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const handleUpdateName = async () => {
+        if (!newName.trim() || newName === conversation.name) {
+            setIsEditingName(false);
+            return;
+        }
+        setIsUpdating(true);
+        try {
+            await api.post(`/conversations/${conversation.id}/update-name`, {
+                userId: currentUser.id,
+                name: newName
+            });
+            setIsEditingName(false);
+            onUpdate();
+        } catch (e) {
+            console.error(e);
+            alert('Failed to update group name');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const handleUpdateIcon = async () => {
+        if (!newIconUrl.trim() || newIconUrl === conversation.iconUrl) {
+            setIsEditingIcon(false);
+            return;
+        }
+        setIsUpdating(true);
+        try {
+            await api.post(`/conversations/${conversation.id}/update-icon`, {
+                userId: currentUser.id,
+                iconUrl: newIconUrl
+            });
+            setIsEditingIcon(false);
+            onUpdate();
+        } catch (e) {
+            console.error(e);
+            alert('Failed to update group icon');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setTempIconFile(file);
+        setTempPreviewUrl(URL.createObjectURL(file));
+    };
+
+    const saveNewIcon = async () => {
+        if (!tempIconFile) return;
+
+        setIsUpdating(true);
+        try {
+            const formData = new FormData();
+            formData.append('file', tempIconFile);
+            formData.append('folder', 'group-icons');
+
+            const uploadRes = await api.post('/upload/single', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+
+            const iconUrl = uploadRes.data.url;
+
+            await api.post(`/conversations/${conversation.id}/update-icon`, {
+                userId: currentUser.id,
+                iconUrl: iconUrl
+            });
+
+            setTempIconFile(null);
+            setTempPreviewUrl(null);
+            setIsEditingIcon(false);
+            onUpdate();
+        } catch (error) {
+            console.error('Error uploading group icon:', error);
+            alert('Failed to update group icon');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const cancelIconChange = () => {
+        setTempIconFile(null);
+        setTempPreviewUrl(null);
+    };
+
+    const handleRemoveIcon = async () => {
+        if (!confirm('Are you sure you want to remove the group icon?')) return;
+
+        setIsUpdating(true);
+        try {
+            await api.post(`/conversations/${conversation.id}/update-icon`, {
+                userId: currentUser.id,
+                iconUrl: null
+            });
+            onUpdate();
+        } catch (e) {
+            console.error(e);
+            alert('Failed to remove group icon');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
     return (
         <>
             <motion.div
@@ -126,12 +259,104 @@ export const GroupDetailsModal: React.FC<GroupDetailsModalProps> = ({ conversati
                     {/* Header - Responsive padding */}
                     <div className="p-4 md:p-5 lg:p-6 border-b border-white/10 bg-gradient-to-r from-indigo-600/10 to-purple-600/10">
                         <div className="flex items-center justify-between mb-3 md:mb-4">
-                            <div className="flex items-center gap-2 md:gap-3">
-                                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-lg">
-                                    <Users className="w-6 h-6 md:w-7 md:h-7 text-white" />
+                            <div className="flex items-center gap-2 md:gap-3 flex-1">
+                                <div className="relative group">
+                                    {(tempPreviewUrl || conversation.iconUrl) ? (
+                                        <Avatar
+                                            src={tempPreviewUrl || conversation.iconUrl}
+                                            alt={conversation.name || 'Group'}
+                                            size="xl"
+                                            className={`ring-4 ring-indigo-500/30 shadow-2xl ${tempPreviewUrl ? 'opacity-70' : ''}`}
+                                        />
+                                    ) : (
+                                        <div className="w-20 h-20 md:w-24 md:h-24 rounded-3xl bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center shadow-2xl">
+                                            <Users className="w-10 h-10 text-white" />
+                                        </div>
+                                    )}
+                                    {isOwner && (
+                                        <div className="absolute -bottom-1 -right-1 flex gap-1">
+                                            {tempPreviewUrl ? (
+                                                <>
+                                                    <button
+                                                        onClick={saveNewIcon}
+                                                        className="p-1.5 bg-green-600 rounded-lg text-white hover:bg-green-700 transition-all shadow-lg border border-white/20"
+                                                        title="Save"
+                                                        disabled={isUpdating}
+                                                    >
+                                                        {isUpdating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                                                    </button>
+                                                    <button
+                                                        onClick={cancelIconChange}
+                                                        className="p-1.5 bg-red-600 rounded-lg text-white hover:bg-red-700 transition-all shadow-lg border border-white/20"
+                                                        title="Cancel"
+                                                        disabled={isUpdating}
+                                                    >
+                                                        <X className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <label className="p-1.5 bg-indigo-600 rounded-lg text-white cursor-pointer hover:bg-indigo-700 transition-all shadow-lg border border-white/20">
+                                                        <input
+                                                            type="file"
+                                                            accept="image/*"
+                                                            onChange={handleFileSelect}
+                                                            className="hidden"
+                                                        />
+                                                        <Camera className="w-3.5 h-3.5" />
+                                                    </label>
+                                                    {conversation.iconUrl && (
+                                                        <button
+                                                            onClick={handleRemoveIcon}
+                                                            className="p-1.5 bg-slate-700 rounded-lg text-white hover:bg-slate-600 transition-all shadow-lg border border-white/20"
+                                                            title="Remove Icon"
+                                                            disabled={isUpdating}
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    )}
+                                                </>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
-                                <div>
-                                    <h2 className="text-xl md:text-2xl font-bold text-white">{conversation.name}</h2>
+                                <div className="flex-1 min-w-0">
+                                    {isEditingName ? (
+                                        <div className="flex items-center gap-2">
+                                            <input
+                                                type="text"
+                                                value={newName}
+                                                onChange={(e) => setNewName(e.target.value)}
+                                                className="bg-[#0f172a] border border-white/10 text-white text-lg font-bold rounded-lg px-2 py-1 focus:ring-2 focus:ring-blue-500 w-full"
+                                                autoFocus
+                                            />
+                                            <button
+                                                onClick={handleUpdateName}
+                                                disabled={isUpdating}
+                                                className="p-1.5 bg-green-600/20 text-green-400 rounded-lg hover:bg-green-600/30 transition-all"
+                                            >
+                                                {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                                            </button>
+                                            <button
+                                                onClick={() => setIsEditingName(false)}
+                                                className="p-1.5 bg-red-600/20 text-red-400 rounded-lg hover:bg-red-600/30 transition-all"
+                                            >
+                                                <X className="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2">
+                                            <h2 className="text-xl md:text-2xl font-bold text-white truncate">{conversation.name}</h2>
+                                            {isOwner && (
+                                                <button
+                                                    onClick={() => setIsEditingName(true)}
+                                                    className="p-1 text-slate-400 hover:text-white transition-all"
+                                                >
+                                                    <Edit2 className="w-4 h-4" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
                                     <p className="text-xs md:text-sm text-slate-400">{conversation.users.length} members</p>
                                 </div>
                             </div>
@@ -142,6 +367,36 @@ export const GroupDetailsModal: React.FC<GroupDetailsModalProps> = ({ conversati
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
+
+                        {isEditingIcon && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                className="mb-4 space-y-2 overflow-hidden"
+                            >
+                                <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Group Icon URL</label>
+                                <div className="flex items-center gap-2">
+                                    <div className="relative flex-1">
+                                        <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                                        <input
+                                            type="text"
+                                            value={newIconUrl}
+                                            onChange={(e) => setNewIconUrl(e.target.value)}
+                                            placeholder="https://..."
+                                            className="w-full bg-[#0f172a] border border-white/10 text-white text-sm rounded-xl pl-10 pr-4 py-2 focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={handleUpdateIcon}
+                                        disabled={isUpdating}
+                                        className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-semibold hover:bg-indigo-700 transition-all flex items-center gap-2"
+                                    >
+                                        {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImageIcon className="w-4 h-4" />}
+                                        Update
+                                    </button>
+                                </div>
+                            </motion.div>
+                        )}
 
                         {/* Action Buttons - Enhanced */}
                         <div className="flex gap-2 md:gap-3">
@@ -162,6 +417,15 @@ export const GroupDetailsModal: React.FC<GroupDetailsModalProps> = ({ conversati
                                         <span className="font-semibold">Delete Group</span>
                                     </button>
                                 </>
+                            )}
+                            {!isOwner && (
+                                <button
+                                    onClick={handleLeaveGroup}
+                                    className="flex-1 flex items-center justify-center gap-2 px-3 md:px-4 py-2.5 rounded-xl bg-red-600/15 hover:bg-red-600/25 border border-red-500/30 hover:border-red-500/50 text-red-400 hover:text-red-300 transition-all text-sm md:text-base active:scale-95 hover:shadow-lg hover:shadow-red-500/20"
+                                >
+                                    <LogOut className="w-4 h-4" />
+                                    <span className="font-semibold">Leave Group</span>
+                                </button>
                             )}
                         </div>
                     </div>
@@ -188,15 +452,12 @@ export const GroupDetailsModal: React.FC<GroupDetailsModalProps> = ({ conversati
                                     className="group p-3 md:p-4 rounded-xl md:rounded-2xl bg-white/5 border border-white/10 hover:bg-white/8 hover:border-white/20 transition-all flex items-center gap-2 md:gap-3 hover:shadow-lg"
                                 >
                                     {/* Avatar - Responsive */}
-                                    <div className={`
-                                w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center text-white font-bold shadow-lg text-sm md:text-base
-                                ${isGroupOwner
-                                            ? 'bg-gradient-to-br from-yellow-500 to-orange-600 ring-2 ring-yellow-500/50'
-                                            : 'bg-gradient-to-br from-blue-600 to-purple-600'
-                                        }
-                            `}>
-                                        {member.user?.username?.[0]?.toUpperCase() || 'U'}
-                                    </div>
+                                    <Avatar
+                                        src={member.user?.avatarUrl}
+                                        alt={member.user?.username}
+                                        size="md"
+                                        className={`w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl ${isGroupOwner ? 'ring-2 ring-yellow-500/50' : ''}`}
+                                    />
 
                                     {/* User Info */}
                                     <div className="flex-1 min-w-0">
@@ -301,9 +562,12 @@ export const GroupDetailsModal: React.FC<GroupDetailsModalProps> = ({ conversati
                                                 : 'bg-white/5 border-white/10 hover:bg-white/10'
                                                 }`}
                                         >
-                                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold">
-                                                {user.username[0]?.toUpperCase()}
-                                            </div>
+                                            <Avatar
+                                                src={user.avatarUrl}
+                                                alt={user.username}
+                                                size="sm"
+                                                className="w-10 h-10 rounded-xl"
+                                            />
                                             <div className="flex-1 min-w-0">
                                                 <p className="font-medium text-white truncate">{user.username}</p>
                                                 <p className="text-xs text-slate-400 truncate">{user.email}</p>

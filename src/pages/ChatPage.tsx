@@ -19,6 +19,7 @@ export default function ChatPage() {
     const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(true);
     const [isLoadingConversations, setIsLoadingConversations] = useState(true);
     const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+    const [typingUsers, setTypingUsers] = useState<{ [conversationId: string]: any[] }>({});
 
     // Initialize User
     useEffect(() => {
@@ -51,20 +52,52 @@ export default function ChatPage() {
         newSocket.on('message', (msg: any) => {
             setMessages((prev) => {
                 if (msg.conversationId === activeConversationIdRef.current) {
-                    // If message already exists (optimistic update), ignore? 
-                    // Currently backend sends everything including ID, so we can check uniqueness if needed
                     if (prev.find(m => m.id === msg.id)) return prev;
-
-                    // Play receive sound if message is from someone else
                     if (msg.senderId !== user.id) {
                         playReceiveSound();
                     }
-
                     return [...prev, msg];
                 }
                 return prev;
             });
             fetchConversations();
+        });
+
+        newSocket.on('user-typing', (data: any) => {
+            setTypingUsers(prev => {
+                const current = prev[data.conversationId] || [];
+                if (current.find(u => u.userId === data.userId)) return prev;
+                return {
+                    ...prev,
+                    [data.conversationId]: [...current, data]
+                };
+            });
+        });
+
+        newSocket.on('user-stop-typing', (data: any) => {
+            setTypingUsers(prev => ({
+                ...prev,
+                [data.conversationId]: (prev[data.conversationId] || []).filter(u => u.userId !== data.userId)
+            }));
+        });
+
+        // --- READ RECEIPT LISTENERS ---
+        newSocket.on('message-delivery-update', (data: { messageId: string; status: string }) => {
+            setMessages(prev => prev.map(m => m.id === data.messageId ? { ...m, status: data.status } : m));
+        });
+
+        newSocket.on('message-read-update', (data: { messageId: string; status: string }) => {
+            setMessages(prev => prev.map(m => m.id === data.messageId ? { ...m, status: data.status } : m));
+        });
+
+        newSocket.on('conversation-read-update', (data: { conversationId: string; userId: string }) => {
+            if (data.conversationId === activeConversationIdRef.current) {
+                setMessages(prev => prev.map(m => m.senderId !== data.userId ? { ...m, status: 'read' } : m));
+            }
+            // Update sidebar unread counts
+            setConversations(prev => prev.map(c =>
+                c.id === data.conversationId ? { ...c, unreadCount: 0 } : c
+            ));
         });
 
         setSocket(newSocket);
@@ -104,12 +137,12 @@ export default function ChatPage() {
     );
 
     const refreshMessages = async () => {
-        if (activeConversationId) {
+        if (activeConversationId && user) {
             setIsLoadingMessages(true);
             try {
-                const res = await api.get(`/conversations/${activeConversationId}`);
+                const res = await api.get(`/conversations/${activeConversationId}?userId=${user.id}`);
                 setMessages(res.data);
-                fetchConversations(); // Update sidebars last message too
+                fetchConversations(); // Update sidebar unread counts
             } catch (e) {
                 console.error('Failed to fetch messages', e);
             } finally {
@@ -124,7 +157,7 @@ export default function ChatPage() {
         setIsLoadingMessages(true);
         socket?.emit('join-conversation', id);
         try {
-            const res = await api.get(`/conversations/${id}`);
+            const res = await api.get(`/conversations/${id}?userId=${user.id}`);
             setMessages(res.data);
 
             // Mark conversation as read after loading messages
@@ -155,12 +188,34 @@ export default function ChatPage() {
         }
     };
 
-    const handleSendMessage = (text: string) => {
+    const handleSendMessage = (text: string, attachments?: any[], replyToId?: string) => {
         if (!socket || !activeConversationId || !user) return;
         socket.emit('send-message', {
             conversationId: activeConversationId,
             senderId: user.id,
-            text
+            text,
+            attachments,
+            replyToId
+        });
+        // Also stop typing when message sent
+        socket.emit('stop-typing', { conversationId: activeConversationId, userId: user.id });
+    };
+
+    const handleTyping = () => {
+        if (!socket || !activeConversationId || !user) return;
+        socket.emit('typing', {
+            conversationId: activeConversationId,
+            userId: user.id,
+            username: user.username,
+            avatarUrl: user.avatarUrl
+        });
+    };
+
+    const handleStopTyping = () => {
+        if (!socket || !activeConversationId || !user) return;
+        socket.emit('stop-typing', {
+            conversationId: activeConversationId,
+            userId: user.id
         });
     };
 
@@ -198,6 +253,9 @@ export default function ChatPage() {
                     conversation={activeConversation}
                     messages={messages}
                     onSendMessage={handleSendMessage}
+                    onTyping={handleTyping}
+                    onStopTyping={handleStopTyping}
+                    typingUsers={typingUsers[activeConversationId || ''] || []}
                     currentUser={user}
                     onRefresh={refreshMessages}
                     onBack={handleBackToList}

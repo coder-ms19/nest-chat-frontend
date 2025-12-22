@@ -4,6 +4,7 @@ import { UserSearch } from './UserSearch';
 import { ConversationSkeleton } from '../ui/Skeleton';
 import { Users, MessageSquare, Home, LogOut, Search, UserPlus, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Avatar from '../ui/Avatar';
 
 
 interface SidebarProps {
@@ -181,22 +182,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                             >
                                                 {/* Avatar - Responsive sizing */}
                                                 <div className="relative flex-shrink-0">
-                                                    <div className={`
-                                                        w-9 h-9 md:w-10 md:h-10 lg:w-11 lg:h-11 rounded-full 
-                                                        flex items-center justify-center text-white font-bold 
-                                                        text-xs md:text-sm shadow-md ring-2 ring-white/10
-                                                        ${conv.isGroup
-                                                            ? 'bg-gradient-to-br from-indigo-500 to-purple-500'
-                                                            : 'bg-gradient-to-br from-blue-500 to-cyan-500'
-                                                        }
-                                                    `}>
-                                                        {conv.isGroup
-                                                            ? <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
-                                                            : displayName[0]?.toUpperCase() || 'U'
-                                                        }
-                                                    </div>
-                                                    {!conv.isGroup && (
-                                                        <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[#111827] shadow-sm shadow-green-500/50" />
+                                                    {conv.isGroup ? (
+                                                        conv.iconUrl ? (
+                                                            <Avatar
+                                                                src={conv.iconUrl}
+                                                                alt={displayName}
+                                                                size="md"
+                                                                className="md:w-10 md:h-10 lg:w-11 lg:h-11 rounded-full ring-2 ring-white/10"
+                                                            />
+                                                        ) : (
+                                                            <div className="w-9 h-9 md:w-10 md:h-10 lg:w-11 lg:h-11 rounded-full flex items-center justify-center text-white font-bold text-xs md:text-sm shadow-md ring-2 ring-white/10 bg-gradient-to-br from-indigo-500 to-purple-500">
+                                                                <Users className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                                                            </div>
+                                                        )
+                                                    ) : (
+                                                        <>
+                                                            <Avatar
+                                                                src={otherUser?.user?.avatarUrl}
+                                                                alt={displayName}
+                                                                size="md"
+                                                                className="md:w-10 md:h-10 lg:w-11 lg:h-11 rounded-full ring-2 ring-white/10"
+                                                            />
+                                                            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-500 rounded-full border-2 border-[#111827] shadow-sm shadow-green-500/50" />
+                                                        </>
                                                     )}
                                                 </div>
 
@@ -219,6 +227,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                         ) : null}
                                                         {lastMessage?.content || 'No messages'}
                                                     </p>
+                                                </div>
+
+                                                {/* Badge & Status Indicators */}
+                                                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                                                    {(conv.unreadCount > 0 && !isActive) && (
+                                                        <motion.div
+                                                            initial={{ scale: 0.5, opacity: 0 }}
+                                                            animate={{ scale: 1, opacity: 1 }}
+                                                            className="min-w-[18px] h-[18px] px-1.5 flex items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full text-[10px] font-bold text-white shadow-lg shadow-blue-500/30"
+                                                        >
+                                                            {conv.unreadCount}
+                                                        </motion.div>
+                                                    )}
+                                                    {isActive && (
+                                                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+                                                    )}
                                                 </div>
                                             </motion.div>
                                         );
@@ -243,9 +267,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {/* Footer - Minimalist */}
             <div className="p-3 border-t border-white/5 bg-[#0f172a]/50 flex items-center gap-3 backdrop-blur-sm">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-white/15">
-                    {currentUser?.username?.[0]?.toUpperCase()}
-                </div>
+                <Avatar
+                    src={currentUser?.avatarUrl}
+                    alt={currentUser?.username}
+                    size="md"
+                    className="ring-2 ring-white/15"
+                />
                 <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-white truncate">{currentUser?.username}</p>
                     <div className="flex items-center gap-1.5">

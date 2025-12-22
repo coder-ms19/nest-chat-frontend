@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import api from '../../api';
 import { Search, MessageCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
+import Avatar from '../ui/Avatar';
 
 interface UserSearchProps {
     onStartChat: (userId: string) => void;
@@ -63,9 +64,12 @@ export const UserSearch: React.FC<UserSearchProps> = ({ onStartChat, currentUser
                             role="button"
                         >
                             <div className="flex items-center gap-3">
-                                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-lg">
-                                    {user.username[0].toUpperCase()}
-                                </div>
+                                <Avatar
+                                    src={user.avatarUrl}
+                                    alt={user.username}
+                                    size="md"
+                                    className="ring-2 ring-white/10"
+                                />
                                 <div>
                                     <h3 className="font-medium text-white group-hover:text-blue-200 transition-colors">{user.username}</h3>
                                     <p className="text-xs text-gray-400">{user.email}</p>

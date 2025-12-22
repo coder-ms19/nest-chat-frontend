@@ -2,33 +2,59 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '../ui/Button';
 import { MessageBubble } from './MessageBubble';
 import { ChatHeaderSkeleton, MessageSkeleton } from '../ui/Skeleton';
-import { Send, MoreVertical, Trash2, ArrowLeft, Info, UserPlus, Users, AlertTriangle, Paperclip, Smile } from 'lucide-react';
+import { Send, MoreVertical, Trash2, ArrowLeft, Info, UserPlus, Users, AlertTriangle, Paperclip, Smile, X } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { GroupDetailsModal } from './GroupDetailsModal';
 import { EmojiPicker } from './EmojiPicker';
+import Avatar from '../ui/Avatar';
 import api from '../../api';
 import { playSendSound } from '../../utils/sounds';
+import { MediaModal } from './MediaModal';
+import { MediaUploadModal } from './MediaUploadModal';
 
 interface ChatAreaProps {
     conversation: any;
     messages: any[];
-    onSendMessage: (text: string) => void;
+    onSendMessage: (text: string, attachments?: any[], replyToId?: string) => void;
+    onTyping: () => void;
+    onStopTyping: () => void;
+    typingUsers: any[];
     currentUser: any;
     onRefresh: () => void;
     onBack?: () => void;
     isLoading?: boolean;
 }
 
-export const ChatArea: React.FC<ChatAreaProps> = ({ conversation, messages, onSendMessage, currentUser, onRefresh, onBack, isLoading = false }) => {
+export const ChatArea: React.FC<ChatAreaProps> = ({
+    conversation,
+    messages,
+    onSendMessage,
+    onTyping,
+    onStopTyping,
+    typingUsers,
+    currentUser,
+    onRefresh,
+    onBack,
+    isLoading = false
+}) => {
     const [text, setText] = useState('');
     const [showAdminMenu, setShowAdminMenu] = useState(false);
     const [showGroupDetails, setShowGroupDetails] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [showEmojiPicker, setShowEmojiPicker] = useState(false);
     const [deleteAction, setDeleteAction] = useState<'delete' | 'leave' | null>(null);
+    const [selectedAttachments, setSelectedAttachments] = useState<any[]>([]); // { url, publicId, resourceType, etc }
+    const [uploadingFiles, setUploadingFiles] = useState<{ id: string; previewUrl: string; progress: number }[]>([]);
+    const [replyingTo, setReplyingTo] = useState<any>(null);
+    const [previewMedia, setPreviewMedia] = useState<any | null>(null);
+    const [showMediaUploadModal, setShowMediaUploadModal] = useState(false);
+
+    const typingTimeoutRef = useRef<any>(null);
+    const lastTypingEmitRef = useRef<number>(0);
     const messagesEndRef = useRef<HTMLDivElement>(null);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const inputContainerRef = useRef<HTMLDivElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -58,18 +84,93 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ conversation, messages, onSe
     };
 
     const handleSend = () => {
-        if (!text.trim()) return;
-        onSendMessage(text);
+        if (!text.trim() && selectedAttachments.length === 0 && uploadingFiles.length === 0) return;
+
+        // Wait if still uploading
+        if (uploadingFiles.length > 0) {
+            alert('Please wait for files to finish uploading');
+            return;
+        }
+
+        onSendMessage(text, selectedAttachments.length > 0 ? selectedAttachments : undefined, replyingTo?.id);
         setText('');
-
-        // Play send sound
-        playSendSound();
-
-        // Reset textarea height
+        setSelectedAttachments([]);
+        setReplyingTo(null);
         if (textareaRef.current) {
             textareaRef.current.style.height = 'auto';
         }
+        playSendSound();
     };
+
+    const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+        setText(e.target.value);
+
+        // Optimized Typing indication (Throttled)
+        const now = Date.now();
+        if (now - lastTypingEmitRef.current > 2000) {
+            onTyping();
+            lastTypingEmitRef.current = now;
+        }
+
+        if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+        typingTimeoutRef.current = setTimeout(() => {
+            onStopTyping();
+            lastTypingEmitRef.current = 0;
+        }, 3000);
+
+        e.target.style.height = 'auto';
+        e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
+    };
+
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
+
+        // Reset input immediately
+        e.target.value = '';
+        setShowMediaUploadModal(true);
+
+        files.forEach(async (file) => {
+            const tempId = Math.random().toString(36).substring(7);
+            const previewUrl = URL.createObjectURL(file);
+
+            // Add to uploading state
+            setUploadingFiles(prev => [...prev, { id: tempId, previewUrl, progress: 0, file: file, type: file.type.startsWith('image/') ? 'IMAGE' : file.type.startsWith('video/') ? 'VIDEO' : 'FILE' }]);
+
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('folder', 'chat-messages');
+
+                const res = await api.post('/upload/single', formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' },
+                    onUploadProgress: (progressEvent) => {
+                        const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+                        setUploadingFiles(prev => prev.map(f => f.id === tempId ? { ...f, progress: percentCompleted } : f));
+                    }
+                });
+
+                // Move to selected attachments
+                setSelectedAttachments(prev => [...prev, { ...res.data, localId: tempId }]);
+                // Update uploadingFiles to 100% just in case
+                setUploadingFiles(prev => prev.map(f => f.id === tempId ? { ...f, progress: 100 } : f));
+            } catch (error) {
+                console.error('Error uploading file:', error);
+                alert(`Failed to upload ${file.name}`);
+                setUploadingFiles(prev => prev.filter(f => f.id !== tempId));
+            }
+        });
+    };
+
+    const removeUploadingFile = (id: string) => {
+        setUploadingFiles(prev => {
+            const file = prev.find(f => f.id === id);
+            if (file) URL.revokeObjectURL(file.previewUrl);
+            return prev.filter(f => f.id !== id);
+        });
+        setSelectedAttachments(prev => prev.filter(a => a.localId !== id));
+    };
+
 
     const handleEmojiSelect = (emoji: string) => {
         setText(prev => prev + emoji);
@@ -175,14 +276,29 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ conversation, messages, onSe
                         </button>
                     )}
                     <div className="relative flex-shrink-0">
-                        <div className={`w-11 h-11 md:w-12 md:h-12 rounded-2xl flex items-center justify-center text-white font-medium shadow-lg ring-2 ring-white/20 ${conversation.isGroup
-                            ? 'bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500'
-                            : 'bg-gradient-to-br from-blue-500 via-cyan-500 to-teal-500'
-                            }`}>
-                            {conversation.isGroup ? <Users className="w-5 h-5 md:w-6 md:h-6" /> : title?.[0]?.toUpperCase()}
-                        </div>
-                        {!conversation.isGroup && (
-                            <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-[#0f172a] shadow-sm shadow-green-500/50" />
+                        {conversation.isGroup ? (
+                            conversation.iconUrl ? (
+                                <Avatar
+                                    src={conversation.iconUrl}
+                                    alt={conversation.name || 'Group'}
+                                    size="lg"
+                                    className="ring-2 ring-white/20 shadow-lg rounded-2xl"
+                                />
+                            ) : (
+                                <div className="w-11 h-11 md:w-12 md:h-12 rounded-2xl flex items-center justify-center text-white font-medium shadow-lg ring-2 ring-white/20 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500">
+                                    <Users className="w-5 h-5 md:w-6 md:h-6" />
+                                </div>
+                            )
+                        ) : (
+                            <>
+                                <Avatar
+                                    src={otherUser?.avatarUrl}
+                                    alt={otherUser?.username || 'User'}
+                                    size="lg"
+                                    className="ring-2 ring-white/20 shadow-lg rounded-2xl"
+                                />
+                                <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-green-500 rounded-full border-2 border-[#0f172a] shadow-sm shadow-green-500/50" />
+                            </>
                         )}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -312,8 +428,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ conversation, messages, onSe
                                     isMe={isMe}
                                     isGroup={conversation.isGroup}
                                     onUpdate={onRefresh}
+                                    onReply={(m: any) => setReplyingTo(m)}
                                     previousMessage={previousMessage}
                                     showSenderInfo={showSenderInfo}
+                                    status={msg.status}
                                 />
                             </React.Fragment>
                         );
@@ -324,37 +442,74 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ conversation, messages, onSe
 
             {/* Input - Professional glass effect */}
             <div ref={inputContainerRef} className="p-3 md:p-4 lg:p-5 bg-transparent z-20 flex-shrink-0">
-                <div className="max-w-4xl mx-auto flex items-end gap-2 bg-[#1e293b]/90 backdrop-blur-xl border border-white/15 p-2 md:p-2.5 rounded-2xl md:rounded-3xl shadow-xl shadow-black/10">
-                    <button
-                        className="p-2.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-full transition-all flex-shrink-0"
-                        title="Add attachment"
-                    >
-                        <Paperclip size={20} />
-                    </button>
+                <div className="max-w-4xl mx-auto flex flex-col bg-[#1e293b]/90 backdrop-blur-xl border border-white/15 rounded-2xl md:rounded-3xl shadow-xl shadow-black/10 overflow-hidden">
 
-                    <textarea
-                        ref={textareaRef}
-                        className="flex-1 bg-transparent text-white text-[15px] placeholder-slate-500 resize-none max-h-32 min-h-[24px] py-2.5 focus:outline-none scrollbar-hide"
-                        placeholder="Type a message..."
-                        value={text}
-                        onFocus={handleFocus}
-                        onChange={(e) => {
-                            setText(e.target.value);
-                            // Auto-grow textarea
-                            e.target.style.height = 'auto';
-                            e.target.style.height = Math.min(e.target.scrollHeight, 128) + 'px';
-                        }}
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                                e.preventDefault();
-                                handleSend();
-                            }
-                        }}
-                        rows={1}
-                        style={{ height: 'auto' }}
-                    />
+                    {/* Typing Status Overlay */}
+                    <AnimatePresence>
+                        {typingUsers?.length > 0 && (
+                            <motion.div
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: 10 }}
+                                className="px-4 py-1.5 flex items-center gap-2 bg-blue-500/5"
+                            >
+                                <div className="flex -space-x-2">
+                                    {typingUsers.slice(0, 3).map((u, i) => (
+                                        <div key={u.userId} style={{ zIndex: 10 - i }}>
+                                            <Avatar src={u.avatarUrl} alt={u.username} size="xs" className="ring-2 ring-[#0f172a]" />
+                                        </div>
+                                    ))}
+                                </div>
+                                <span className="text-[11px] text-blue-400 font-medium animate-pulse">
+                                    {typingUsers.length === 1
+                                        ? `${typingUsers[0].username} is typing...`
+                                        : `${typingUsers.length} people are typing...`}
+                                </span>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
 
-                    <div className="flex items-center gap-1 relative">
+                    {/* Reply Preview */}
+                    <AnimatePresence>
+                        {replyingTo && (
+                            <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                className="px-4 py-2 border-b border-white/10 bg-white/5 flex items-center justify-between"
+                            >
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className="w-1 bg-blue-500 rounded-full h-8 flex-shrink-0" />
+                                    <div className="min-w-0">
+                                        <p className="text-[10px] font-bold text-blue-400 uppercase tracking-wider">Replying to {replyingTo.sender?.username}</p>
+                                        <p className="text-xs text-slate-400 truncate">{replyingTo.content}</p>
+                                    </div>
+                                </div>
+                                <button onClick={() => setReplyingTo(null)} className="p-1 hover:bg-white/10 rounded-full text-slate-400 transition-colors">
+                                    <X size={16} />
+                                </button>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+
+                    <div className="flex items-end gap-2 p-2 md:p-3">
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            className="hidden"
+                            accept="image/*,video/*,.pdf,.doc,.docx,.txt"
+                            multiple
+                            onChange={handleFileSelect}
+                        />
+
+                        <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="p-2.5 rounded-full text-slate-400 hover:text-white hover:bg-white/10 transition-all flex-shrink-0 disabled:opacity-50"
+                            title="Upload files"
+                        >
+                            <Paperclip size={20} />
+                        </button>
+
                         <button
                             onClick={() => setShowEmojiPicker(!showEmojiPicker)}
                             className={`p-2.5 rounded-full transition-all flex-shrink-0 ${showEmojiPicker
@@ -369,17 +524,35 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ conversation, messages, onSe
                         {/* Emoji Picker */}
                         <AnimatePresence>
                             {showEmojiPicker && (
-                                <EmojiPicker
-                                    onEmojiSelect={handleEmojiSelect}
-                                    onClose={() => setShowEmojiPicker(false)}
-                                />
+                                <div className="absolute bottom-full mb-4 left-0 z-50">
+                                    <EmojiPicker
+                                        onEmojiSelect={handleEmojiSelect}
+                                        onClose={() => setShowEmojiPicker(false)}
+                                    />
+                                </div>
                             )}
                         </AnimatePresence>
 
+                        <textarea
+                            ref={textareaRef}
+                            className="flex-1 bg-transparent text-white text-[15px] placeholder-slate-500 resize-none max-h-32 min-h-[24px] py-1.5 focus:outline-none scrollbar-hide"
+                            placeholder="Type a message..."
+                            value={text}
+                            onFocus={handleFocus}
+                            onChange={handleTextChange}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter' && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleSend();
+                                }
+                            }}
+                            rows={1}
+                        />
+
                         <Button
                             onClick={handleSend}
-                            disabled={!text.trim()}
-                            className="rounded-full w-11 h-11 flex items-center justify-center bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:from-blue-500 hover:to-blue-600 active:scale-95 disabled:from-gray-700 disabled:to-gray-800 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-600/25 transform transition-all p-0 flex-shrink-0"
+                            disabled={(!text.trim() && selectedAttachments.length === 0 && uploadingFiles.length === 0) || uploadingFiles.length > 0}
+                            className="rounded-full w-10 h-10 flex items-center justify-center bg-gradient-to-r from-[#3b82f6] to-[#2563eb] hover:from-blue-500 hover:to-blue-600 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-600/25 transform transition-all p-0 flex-shrink-0"
                             aria-label="Send message"
                         >
                             <Send className="w-5 h-5 text-white ml-0.5" />
@@ -450,6 +623,31 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ conversation, messages, onSe
                     </motion.div>
                 )}
             </AnimatePresence>
+            {/* Media Preview Modal */}
+            <MediaModal
+                isOpen={!!previewMedia}
+                onClose={() => setPreviewMedia(null)}
+                media={previewMedia}
+            />
+            {/* Media Upload (WhatsApp Style) Modal */}
+            <MediaUploadModal
+                isOpen={showMediaUploadModal}
+                items={uploadingFiles as any}
+                onClose={() => {
+                    setShowMediaUploadModal(false);
+                    setUploadingFiles([]);
+                    setSelectedAttachments([]);
+                }}
+                onRemove={removeUploadingFile}
+                onAddMore={() => fileInputRef.current?.click()}
+                caption={text}
+                onCaptionChange={setText}
+                onSend={() => {
+                    handleSend();
+                    setShowMediaUploadModal(false);
+                    setUploadingFiles([]);
+                }}
+            />
         </div>
     );
 };

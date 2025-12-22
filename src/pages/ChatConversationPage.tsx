@@ -15,6 +15,7 @@ export default function ChatConversationPage() {
     const [conversation, setConversation] = useState<any>(null);
     const [messages, setMessages] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [typingUsers, setTypingUsers] = useState<any[]>([]);
 
     const activeConversationIdRef = useRef<string | null>(null);
 
@@ -70,6 +71,21 @@ export default function ChatConversationPage() {
                 }
                 return prev;
             });
+        });
+
+        newSocket.on('user-typing', (data: any) => {
+            if (data.conversationId === activeConversationIdRef.current) {
+                setTypingUsers(prev => {
+                    if (prev.find(u => u.userId === data.userId)) return prev;
+                    return [...prev, data];
+                });
+            }
+        });
+
+        newSocket.on('user-stop-typing', (data: any) => {
+            if (data.conversationId === activeConversationIdRef.current) {
+                setTypingUsers(prev => prev.filter(u => u.userId !== data.userId));
+            }
         });
 
         setSocket(newSocket);
@@ -133,12 +149,34 @@ export default function ChatConversationPage() {
         }
     };
 
-    const handleSendMessage = (text: string) => {
+    const handleSendMessage = (text: string, attachments?: any[], replyToId?: string) => {
         if (!socket || !conversationId || !user) return;
         socket.emit('send-message', {
             conversationId,
             senderId: user.id,
-            text
+            text,
+            attachments,
+            replyToId
+        });
+        // Also stop typing when message sent
+        socket.emit('stop-typing', { conversationId, userId: user.id });
+    };
+
+    const handleTyping = () => {
+        if (!socket || !conversationId || !user) return;
+        socket.emit('typing', {
+            conversationId,
+            userId: user.id,
+            username: user.username,
+            avatarUrl: user.avatarUrl
+        });
+    };
+
+    const handleStopTyping = () => {
+        if (!socket || !conversationId || !user) return;
+        socket.emit('stop-typing', {
+            conversationId,
+            userId: user.id
         });
     };
 
@@ -192,6 +230,9 @@ export default function ChatConversationPage() {
                     conversation={conversation}
                     messages={messages}
                     onSendMessage={handleSendMessage}
+                    onTyping={handleTyping}
+                    onStopTyping={handleStopTyping}
+                    typingUsers={typingUsers}
                     currentUser={user}
                     onRefresh={refreshMessages}
                     onBack={handleBack}

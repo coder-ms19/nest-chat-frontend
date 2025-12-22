@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Pencil, Trash2, X, Check, AlertTriangle } from 'lucide-react';
+import { Pencil, Trash2, X, Check, AlertTriangle, Reply, ChevronDown, Download, FileText } from 'lucide-react';
 import { ReadReceipt } from './ReadReceipt';
+import Avatar from '../ui/Avatar';
 import api from '../../api';
+import { MediaModal } from './MediaModal';
 
 interface MessageBubbleProps {
     message: any;
     isMe: boolean;
     isGroup: boolean;
     onUpdate: () => void;
+    onReply: (message: any) => void;
     previousMessage?: any;
     showSenderInfo?: boolean;
     status?: 'sent' | 'delivered' | 'read';
@@ -19,10 +22,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     isMe,
     isGroup,
     onUpdate,
-
+    onReply,
     showSenderInfo = true,
     status = 'sent'
 }) => {
+    const [showMenu, setShowMenu] = useState(false);
+    const [previewMedia, setPreviewMedia] = useState<any | null>(null);
     const [isHovered, setIsHovered] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editText, setEditText] = useState(message.content);
@@ -66,7 +71,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     };
 
     const senderName = message.sender?.username || 'Unknown';
-    const senderInitial = senderName[0]?.toUpperCase() || 'U';
 
     return (
         <>
@@ -84,14 +88,17 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 <div className={`flex gap-2 max-w-[85%] md:max-w-[70%] lg:max-w-[60%] xl:max-w-[55%] ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
                     {/* Avatar for other users in group - only show when sender changes */}
                     {!isMe && isGroup && showSenderInfo && (
-                        <div className="flex-shrink-0 w-7 h-7 md:w-8 md:h-8 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center text-white text-xs font-bold ring-2 ring-white/10 shadow-md">
-                            {senderInitial}
-                        </div>
+                        <Avatar
+                            src={message.sender?.avatarUrl}
+                            alt={senderName}
+                            size="sm"
+                            className="flex-shrink-0 ring-2 ring-white/10 shadow-md"
+                        />
                     )}
 
                     {/* Spacer when avatar is hidden (grouped messages) */}
                     {!isMe && isGroup && !showSenderInfo && (
-                        <div className="flex-shrink-0 w-7 h-7 md:w-8 md:h-8" />
+                        <div className="flex-shrink-0 w-8 h-8" />
                     )}
 
                     <div className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}>
@@ -107,7 +114,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                             <div
                                 className={`
                                     shadow-md relative transition-all duration-200
-                                    px-3 py-2 md:px-3.5 md:py-2.5 lg:px-4 lg:py-3
+                                    px-3 py-2 md:px-3.5 md:py-2.5 lg:px-4 lg:py-3 group
                                     ${isMe
                                         ? 'bg-gradient-to-br from-[#3b82f6] to-[#2563eb] text-white rounded-[16px] md:rounded-[18px] rounded-tr-md shadow-blue-600/20'
                                         : 'bg-[#1e293b]/95 text-slate-100 border border-white/10 rounded-[16px] md:rounded-[18px] rounded-tl-md backdrop-blur-sm'
@@ -115,6 +122,66 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                                     ${isHovered ? 'shadow-lg' : ''}
                                 `}
                             >
+                                {/* WhatsApp Style Menu Button */}
+                                <div className={`absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity z-20`}>
+                                    <button
+                                        onClick={() => setShowMenu(!showMenu)}
+                                        className={`p-1 rounded-full ${isMe ? 'hover:bg-white/10' : 'hover:bg-white/10'} text-white/70`}
+                                    >
+                                        <ChevronDown size={16} />
+                                    </button>
+
+                                    {/* Action Menu */}
+                                    <AnimatePresence>
+                                        {showMenu && (
+                                            <>
+                                                <div
+                                                    className="fixed inset-0 z-30"
+                                                    onClick={() => setShowMenu(false)}
+                                                />
+                                                <motion.div
+                                                    initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                                                    exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                                    className={`absolute top-full right-0 mt-1 w-32 bg-[#1e293b] border border-white/10 rounded-xl shadow-2xl z-40 overflow-hidden py-1`}
+                                                >
+                                                    <button
+                                                        onClick={() => { onReply(message); setShowMenu(false); }}
+                                                        className="w-full flex items-center gap-2 px-3 py-2 text-xs text-slate-300 hover:bg-white/5 transition-colors"
+                                                    >
+                                                        <Reply size={14} /> Reply
+                                                    </button>
+                                                    {isMe && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => { setIsEditing(true); setShowMenu(false); }}
+                                                                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-green-400 hover:bg-white/5 transition-colors"
+                                                            >
+                                                                <Pencil size={14} /> Edit
+                                                            </button>
+                                                            <button
+                                                                onClick={() => { handleDelete(); setShowMenu(false); }}
+                                                                className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:bg-white/5 transition-colors"
+                                                            >
+                                                                <Trash2 size={14} /> Delete
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                </motion.div>
+                                            </>
+                                        )}
+                                    </AnimatePresence>
+                                </div>
+
+                                {/* Reply Header in Bubble */}
+                                {message.replyTo && (
+                                    <div className={`mb-2 p-2 rounded-lg text-xs border-l-4 min-w-[120px] ${isMe ? 'bg-black/20 border-white/30 text-white/80' : 'bg-white/5 border-blue-500/50 text-slate-400'
+                                        }`}>
+                                        <p className="font-bold mb-0.5">{message.replyTo.sender?.username}</p>
+                                        <p className="truncate line-clamp-1">{message.replyTo.content}</p>
+                                    </div>
+                                )}
+
                                 {isEditing ? (
                                     <div className="flex flex-col gap-2 min-w-[180px] md:min-w-[200px]">
                                         <textarea
@@ -152,36 +219,58 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                                         </div>
                                     </div>
                                 ) : (
-                                    <p className="text-sm md:text-[15px] leading-normal whitespace-pre-wrap break-words">
-                                        {message.content}
-                                    </p>
+                                    <>
+                                        {message.attachments && message.attachments.length > 0 && (
+                                            <div className="flex flex-col gap-2 mb-2">
+                                                {message.attachments.map((att: any) => (
+                                                    att.type === 'IMAGE' ? (
+                                                        <img
+                                                            key={att.id}
+                                                            src={att.url}
+                                                            alt="attachment"
+                                                            className="max-w-[300px] w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                                                            onClick={() => setPreviewMedia({ url: att.url, type: 'IMAGE', name: att.originalName })}
+                                                        />
+                                                    ) : att.type === 'VIDEO' ? (
+                                                        <div key={att.id} className="relative group/vid cursor-pointer max-w-[300px] w-full rounded-lg overflow-hidden shadow-lg bg-black/20" onClick={() => setPreviewMedia({ url: att.url, type: 'VIDEO', name: att.originalName })}>
+                                                            <video
+                                                                src={att.url}
+                                                                className="w-full pointer-events-none"
+                                                            />
+                                                            <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover/vid:opacity-100 transition-opacity">
+                                                                <div className="w-12 h-12 rounded-full bg-white/20 backdrop-blur-md flex items-center justify-center animate-pulse">
+                                                                    <div className="border-t-8 border-b-8 border-l-[12px] border-transparent border-l-white ml-1" />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <a
+                                                            key={att.id}
+                                                            href={att.url}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className={`flex items-center gap-3 p-3 rounded-xl transition-all ${isMe ? 'bg-white/10 hover:bg-white/20 text-white' : 'bg-white/5 hover:bg-white/10 text-slate-300'
+                                                                }`}
+                                                        >
+                                                            <div className="p-2 bg-blue-500/20 rounded-lg text-blue-400">
+                                                                <FileText size={20} />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <p className="text-xs font-semibold truncate leading-tight">Attachment</p>
+                                                                <p className="text-[10px] opacity-60 uppercase tracking-widest">{att.mimeType?.split('/')[1] || 'FILE'}</p>
+                                                            </div>
+                                                            <Download size={16} className="opacity-40" />
+                                                        </a>
+                                                    )
+                                                ))}
+                                            </div>
+                                        )}
+                                        <p className="text-sm md:text-[15px] leading-normal whitespace-pre-wrap break-words">
+                                            {message.content}
+                                        </p>
+                                    </>
                                 )}
                             </div>
-
-                            {/* Actions for My Messages - Mobile Optimized */}
-                            {isMe && !isEditing && isHovered && (
-                                <motion.div
-                                    initial={{ opacity: 0, scale: 0.8 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    className={`absolute -top-2 md:-top-3 bg-gradient-to-br from-[#1e293b] to-[#0f172a] border border-white/15 rounded-xl shadow-2xl p-1 flex gap-1 ${isMe ? '-left-1 md:-left-2 transform -translate-x-full' : '-right-1 md:-right-2 transform translate-x-full'
-                                        }`}
-                                >
-                                    <button
-                                        onClick={() => setIsEditing(true)}
-                                        className="p-2 text-blue-400 hover:bg-blue-500/20 active:bg-blue-500/30 rounded-lg transition-all hover:scale-110 touch-manipulation"
-                                        title="Edit message"
-                                    >
-                                        <Pencil size={14} />
-                                    </button>
-                                    <button
-                                        onClick={handleDelete}
-                                        className="p-2 text-red-400 hover:bg-red-500/20 active:bg-red-500/30 rounded-lg transition-all hover:scale-110 touch-manipulation"
-                                        title="Delete message"
-                                    >
-                                        <Trash2 size={14} />
-                                    </button>
-                                </motion.div>
-                            )}
                         </div>
 
                         {/* Timestamp with Read Receipt - Professional colors */}
@@ -242,6 +331,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                     </motion.div>
                 )}
             </AnimatePresence>
+            {/* Image/Video Preview Modal */}
+            <MediaModal
+                isOpen={!!previewMedia}
+                onClose={() => setPreviewMedia(null)}
+                media={previewMedia}
+            />
         </>
     );
 };
