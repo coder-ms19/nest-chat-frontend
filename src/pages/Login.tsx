@@ -20,10 +20,14 @@ export default function Login() {
 
         try {
             const res = await api.post('/auth/login', { email, password });
-            localStorage.setItem('token', res.data.token);
+            console.log('Login response:', res.data);
+
+            // Store accessToken from tokens object
+            localStorage.setItem('token', res.data.tokens.accessToken);
             localStorage.setItem('user', JSON.stringify(res.data.user));
-            navigate('/chat');
+            navigate('/');
         } catch (err: any) {
+            console.error('Login error:', err);
             setError(err.response?.data?.message || 'Login failed. Please try again.');
         } finally {
             setLoading(false);

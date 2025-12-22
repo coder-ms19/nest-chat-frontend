@@ -7,6 +7,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { GroupDetailsModal } from './GroupDetailsModal';
 import { EmojiPicker } from './EmojiPicker';
 import api from '../../api';
+import { playSendSound } from '../../utils/sounds';
 
 interface ChatAreaProps {
     conversation: any;
@@ -60,6 +61,10 @@ export const ChatArea: React.FC<ChatAreaProps> = ({ conversation, messages, onSe
         if (!text.trim()) return;
         onSendMessage(text);
         setText('');
+
+        // Play send sound
+        playSendSound();
+
         // Reset textarea height
         if (textareaRef.current) {
             textareaRef.current.style.height = 'auto';

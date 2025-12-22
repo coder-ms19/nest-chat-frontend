@@ -217,7 +217,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                                                         {conv.isGroup && lastMessage ? (
                                                             <span className="font-semibold mr-1">{lastMessage.sender?.username}:</span>
                                                         ) : null}
-                                                        {lastMessage?.text || 'No messages'}
+                                                        {lastMessage?.content || 'No messages'}
                                                     </p>
                                                 </div>
                                             </motion.div>

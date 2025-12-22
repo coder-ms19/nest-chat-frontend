@@ -6,6 +6,7 @@ import ConversationsPage from './pages/ConversationsPage';
 import ChatConversationPage from './pages/ChatConversationPage';
 import Home from './pages/Home';
 import NotFound from './pages/NotFound';
+import PostsPage from './pages/PostsPage';
 
 function App() {
   return (
@@ -13,6 +14,9 @@ function App() {
       <Route path="/" element={<Home />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+
+      {/* Posts page */}
+      <Route path="/posts" element={<PostsPage />} />
 
       {/* New separate pages for mobile-first experience */}
       <Route path="/conversations" element={<ConversationsPage />} />

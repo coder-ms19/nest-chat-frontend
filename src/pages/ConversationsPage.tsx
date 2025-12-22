@@ -10,6 +10,7 @@ export default function ConversationsPage() {
     const [user, setUser] = useState<any>(null);
     const [conversations, setConversations] = useState<any[]>([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
 
     // Initialize User
     useEffect(() => {
@@ -52,11 +53,14 @@ export default function ConversationsPage() {
 
     const fetchConversations = async () => {
         if (!user) return;
+        setIsLoading(true);
         try {
             const res = await api.get(`/conversations/user/${user.id}`);
             setConversations(res.data);
         } catch (e) {
             console.error('Failed to fetch conversations', e);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -106,6 +110,7 @@ export default function ConversationsPage() {
                     onCreateGroup={() => setIsModalOpen(true)}
                     onStartChat={handleStartChat}
                     currentUser={user}
+                    isLoading={isLoading}
                 />
             </div>
 

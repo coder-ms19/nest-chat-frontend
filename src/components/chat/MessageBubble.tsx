@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Pencil, Trash2, X, Check, AlertTriangle } from 'lucide-react';
-
+import { ReadReceipt } from './ReadReceipt';
 import api from '../../api';
 
 interface MessageBubbleProps {
@@ -11,6 +11,7 @@ interface MessageBubbleProps {
     onUpdate: () => void;
     previousMessage?: any;
     showSenderInfo?: boolean;
+    status?: 'sent' | 'delivered' | 'read';
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({
@@ -18,12 +19,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     isMe,
     isGroup,
     onUpdate,
-    
-    showSenderInfo = true
+
+    showSenderInfo = true,
+    status = 'sent'
 }) => {
     const [isHovered, setIsHovered] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
-    const [editText, setEditText] = useState(message.text);
+    const [editText, setEditText] = useState(message.content);
     const [loading, setLoading] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
 
@@ -43,7 +45,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     };
 
     const handleEdit = async () => {
-        if (editText.trim() === message.text) {
+        if (editText.trim() === message.content) {
             setIsEditing(false);
             return;
         }
@@ -151,7 +153,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                                     </div>
                                 ) : (
                                     <p className="text-sm md:text-[15px] leading-normal whitespace-pre-wrap break-words">
-                                        {message.text}
+                                        {message.content}
                                     </p>
                                 )}
                             </div>
@@ -182,10 +184,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                             )}
                         </div>
 
-                        {/* Timestamp - Professional colors */}
-                        <span className={`text-[10px] mt-1 px-1 ${isMe ? 'text-white/70' : 'text-slate-500'}`}>
-                            {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                        </span>
+                        {/* Timestamp with Read Receipt - Professional colors */}
+                        <div className={`flex items-center gap-1 mt-1 px-1 ${isMe ? 'text-white/70' : 'text-slate-500'}`}>
+                            <span className="text-[10px]">
+                                {new Date(message.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                            {isMe && <ReadReceipt status={status} />}
+                        </div>
                     </div>
                 </div>
             </motion.div>
@@ -217,7 +222,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                                 </div>
                             </div>
                             <div className="bg-white/5 border border-white/10 rounded-xl p-3 mb-6">
-                                <p className="text-sm text-slate-300 line-clamp-3">{message.text}</p>
+                                <p className="text-sm text-slate-300 line-clamp-3">{message.content}</p>
                             </div>
                             <div className="flex gap-3">
                                 <button

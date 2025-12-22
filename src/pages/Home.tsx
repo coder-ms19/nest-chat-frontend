@@ -90,6 +90,12 @@ export default function Home() {
                                         <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
                                         <span className="text-blue-400 font-medium">{user?.username}</span>
                                     </span>
+                                    <Link to="/posts">
+                                        <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-4 md:px-6 py-2 rounded-xl shadow-lg shadow-purple-600/30 transition-all duration-300 hover:scale-105 flex items-center gap-2">
+                                            <MessageCircle className="w-4 h-4" />
+                                            <span className="hidden sm:inline">Posts</span>
+                                        </Button>
+                                    </Link>
                                     <Link to="/conversations">
                                         <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-4 md:px-6 py-2 rounded-xl shadow-lg shadow-blue-600/30 transition-all duration-300 hover:scale-105 flex items-center gap-2">
                                             <MessageCircle className="w-4 h-4" />

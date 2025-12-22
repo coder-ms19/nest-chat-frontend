@@ -5,6 +5,8 @@ import { Sidebar } from '../components/chat/Sidebar';
 import { ChatArea } from '../components/chat/ChatArea';
 import { CreateGroupModal } from '../components/chat/CreateGroupModal';
 import { useNavigate } from 'react-router-dom';
+import { useMessageReadTracking } from '../hooks/useMessageReadTracking';
+import { playReceiveSound } from '../utils/sounds';
 
 export default function ChatPage() {
     const navigate = useNavigate();
@@ -52,6 +54,12 @@ export default function ChatPage() {
                     // If message already exists (optimistic update), ignore? 
                     // Currently backend sends everything including ID, so we can check uniqueness if needed
                     if (prev.find(m => m.id === msg.id)) return prev;
+
+                    // Play receive sound if message is from someone else
+                    if (msg.senderId !== user.id) {
+                        playReceiveSound();
+                    }
+
                     return [...prev, msg];
                 }
                 return prev;
@@ -88,6 +96,13 @@ export default function ChatPage() {
 
     const activeConversation = conversations.find(c => c.id === activeConversationId);
 
+    // Initialize message read tracking
+    const { markConversationAsRead } = useMessageReadTracking(
+        socket,
+        activeConversationId,
+        user?.id || null
+    );
+
     const refreshMessages = async () => {
         if (activeConversationId) {
             setIsLoadingMessages(true);
@@ -111,6 +126,12 @@ export default function ChatPage() {
         try {
             const res = await api.get(`/conversations/${id}`);
             setMessages(res.data);
+
+            // Mark conversation as read after loading messages
+            console.log('About to mark conversation as read:', { id, hasFunction: !!markConversationAsRead });
+            if (markConversationAsRead) {
+                await markConversationAsRead();
+            }
         } catch (e) {
             console.error('Failed to fetch messages', e);
         } finally {
