@@ -67,93 +67,149 @@ export const OngoingCallUI: React.FC = () => {
                 </div>
             </div>
 
-            {/* Video Grid */}
-            <div className="flex-1 p-4 overflow-hidden">
+            {/* Video Content */}
+            <div className="flex-1 overflow-hidden relative bg-black">
                 {isVideoCall ? (
-                    <div
-                        className={`h-full grid gap-4 ${remoteStreamCount === 0
-                            ? 'grid-cols-1'
-                            : remoteStreamCount === 1
-                                ? 'grid-cols-1 lg:grid-cols-2'
-                                : remoteStreamCount === 2
-                                    ? 'grid-cols-1 lg:grid-cols-2'
-                                    : remoteStreamCount <= 4
-                                        ? 'grid-cols-2'
-                                        : 'grid-cols-2 lg:grid-cols-3'
-                            }`}
-                    >
-                        {/* Remote videos */}
-                        {Array.from(remoteStreams.entries()).map(([userId]) => (
-                            <div
-                                key={userId}
-                                className="relative bg-gray-800 rounded-2xl overflow-hidden shadow-2xl"
-                            >
+                    remoteStreamCount === 1 ? (
+                        // 1-on-1 Call: Picture-in-Picture Layout
+                        <div className="w-full h-full relative">
+                            {/* Remote User (Full Screen) */}
+                            {Array.from(remoteStreams.entries()).map(([userId]) => (
+                                <div key={userId} className="absolute inset-0 z-0">
+                                    <video
+                                        ref={(el) => {
+                                            if (el) {
+                                                remoteVideoRefs.current.set(userId, el);
+                                                const stream = remoteStreams.get(userId);
+                                                if (stream && el.srcObject !== stream) {
+                                                    console.log('Immediately attaching stream to video for:', userId);
+                                                    el.srcObject = stream;
+                                                    el.play().catch(err => console.error('Video autoplay prevented:', err));
+                                                }
+                                            }
+                                        }}
+                                        autoPlay
+                                        playsInline
+                                        className="w-full h-full object-cover"
+                                    />
+                                    {/* Name Overlay */}
+                                    <div className="absolute top-4 left-4 bg-black/40 backdrop-blur-md px-4 py-2 rounded-full">
+                                        <span className="text-white font-medium text-lg drop-shadow-md">
+                                            {activeCall.participants.find((p) => p.userId === userId)?.username || 'User'}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+
+                            {/* Local User (Floating PiP) */}
+                            <div className="absolute bottom-24 right-4 w-32 h-44 md:w-48 md:h-64 bg-gray-900/90 backdrop-blur-sm rounded-xl overflow-hidden shadow-2xl border border-white/20 z-10 transition-all hover:scale-105 origin-bottom-right">
                                 <video
                                     ref={(el) => {
-                                        if (el) {
-                                            remoteVideoRefs.current.set(userId, el);
-                                            const stream = remoteStreams.get(userId);
-                                            if (stream && el.srcObject !== stream) {
-                                                console.log('Immediately attaching stream to video for:', userId);
-                                                el.srcObject = stream;
-                                                el.play().catch(err => console.error('Video autoplay prevented:', err));
-                                            }
+                                        localVideoRef.current = el;
+                                        if (el && localStream) {
+                                            el.srcObject = localStream;
+                                            el.play().catch(console.error);
                                         }
                                     }}
                                     autoPlay
                                     playsInline
-                                    className="w-full h-full object-cover"
-                                    onLoadedMetadata={(e) => {
-                                        console.log('Video metadata loaded', e.currentTarget.videoWidth, 'x', e.currentTarget.videoHeight);
-                                        e.currentTarget.play().catch(console.error);
-                                    }}
+                                    muted
+                                    className={`w-full h-full object-cover ${isVideoOff ? 'hidden' : ''}`}
                                 />
-                                <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-lg z-10">
-                                    <span className="text-white text-sm font-medium">
-                                        {activeCall.participants.find((p) => p.userId === userId)?.username || 'User'}
-                                    </span>
-                                    {/* Debug Info */}
-                                    <span className="text-xs text-gray-400 block mt-1">
-                                        Tracks: {remoteStreams.get(userId)?.getTracks().length || 0}
-                                    </span>
-                                </div>
+                                {isVideoOff && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
+                                        <div className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center">
+                                            <span className="text-gray-400 text-xs">Off</span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                        ))}
-
-                        {/* Local video */}
-                        <div className="relative bg-gray-800 rounded-2xl overflow-hidden shadow-2xl">
-                            <video
-                                ref={localVideoRef}
-                                autoPlay
-                                playsInline
-                                muted
-                                className="w-full h-full object-cover"
-                            />
-                            <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-sm px-3 py-1.5 rounded-lg">
-                                <span className="text-white text-sm font-medium">
-                                    You {isVideoOff && '(Camera Off)'}
-                                </span>
-                            </div>
-                            {isVideoOff && (
-                                <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
-                                    <div className="w-24 h-24 rounded-full bg-purple-600 flex items-center justify-center text-white text-3xl font-bold">
-                                        {activeCall.initiator?.username?.charAt(0).toUpperCase() || 'Y'}
+                        </div>
+                    ) : (
+                        // Group Call: Grid Layout
+                        <div
+                            className={`h-full p-4 grid gap-4 ${remoteStreamCount === 0
+                                ? 'grid-cols-1'
+                                : remoteStreamCount <= 4
+                                    ? 'grid-cols-2'
+                                    : 'grid-cols-2 lg:grid-cols-3'
+                                }`}
+                        >
+                            {/* Remote videos */}
+                            {Array.from(remoteStreams.entries()).map(([userId]) => (
+                                <div
+                                    key={userId}
+                                    className="relative bg-gray-800 rounded-2xl overflow-hidden shadow-xl border border-white/5"
+                                >
+                                    <video
+                                        ref={(el) => {
+                                            if (el) {
+                                                remoteVideoRefs.current.set(userId, el);
+                                                const stream = remoteStreams.get(userId);
+                                                if (stream && el.srcObject !== stream) {
+                                                    el.srcObject = stream;
+                                                    el.play().catch(err => console.error('Video autoplay prevented:', err));
+                                                }
+                                            }
+                                        }}
+                                        autoPlay
+                                        playsInline
+                                        className="w-full h-full object-cover"
+                                    />
+                                    <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg z-10">
+                                        <span className="text-white text-sm font-medium">
+                                            {activeCall.participants.find((p) => p.userId === userId)?.username || 'User'}
+                                        </span>
                                     </div>
                                 </div>
-                            )}
+                            ))}
+
+                            {/* Local video (In Grid) */}
+                            <div className="relative bg-gray-800 rounded-2xl overflow-hidden shadow-xl border border-white/5">
+                                <video
+                                    ref={(el) => {
+                                        localVideoRef.current = el;
+                                        if (el && localStream) {
+                                            el.srcObject = localStream;
+                                            el.play().catch(console.error);
+                                        }
+                                    }}
+                                    autoPlay
+                                    playsInline
+                                    muted
+                                    className="w-full h-full object-cover"
+                                />
+                                <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-lg">
+                                    <span className="text-white text-sm font-medium">
+                                        You {isVideoOff && '(Camera Off)'}
+                                    </span>
+                                </div>
+                                {isVideoOff && (
+                                    <div className="absolute inset-0 bg-gray-900 flex items-center justify-center">
+                                        <div className="w-20 h-20 rounded-full bg-purple-600 flex items-center justify-center text-white text-2xl font-bold">
+                                            You
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
+                    )
                 ) : (
                     // Audio-only view
-                    <div className="h-full flex items-center justify-center">
-                        <div className="text-center">
-                            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-purple-600 to-indigo-700 flex items-center justify-center text-white text-5xl font-bold mb-6 mx-auto shadow-2xl animate-pulse">
+                    <div className="h-full flex items-center justify-center bg-gradient-to-br from-gray-900 to-black">
+                        <div className="text-center relative z-10">
+                            <div className="w-32 h-32 rounded-full bg-gradient-to-br from-purple-600 to-indigo-700 flex items-center justify-center text-white text-5xl font-bold mb-6 mx-auto shadow-2xl animate-pulse ring-8 ring-purple-500/20">
                                 {activeCall.initiator?.username?.charAt(0).toUpperCase() || 'U'}
                             </div>
-                            <h2 className="text-white text-3xl font-bold mb-2">
+                            <h2 className="text-white text-3xl font-bold mb-2 tracking-tight">
                                 {activeCall.initiator?.username || 'User'}
                             </h2>
-                            <p className="text-gray-300 text-lg">Audio Call</p>
+                            <p className="text-indigo-300 text-lg font-medium">Audio Call</p>
+                        </div>
+
+                        {/* Background Effects */}
+                        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-purple-600/10 rounded-full blur-3xl animate-pulse" />
                         </div>
 
                         {/* Hidden audio elements for remote streams */}
@@ -163,10 +219,8 @@ export const OngoingCallUI: React.FC = () => {
                                 ref={(el) => {
                                     if (el) {
                                         remoteVideoRefs.current.set(userId, el as any);
-                                        // Immediately attach stream if it exists
                                         const stream = remoteStreams.get(userId);
                                         if (stream && el.srcObject !== stream) {
-                                            console.log('Immediately attaching stream to audio for:', userId);
                                             el.srcObject = stream;
                                             el.play().catch(err => console.log('Audio autoplay prevented:', err));
                                         }

@@ -52,6 +52,23 @@ export const useWebRTC = (userId: string, username: string) => {
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
 
+    // Refs to avoid stale closures
+    const localStreamRef = useRef<MediaStream | null>(null);
+    const activeCallRef = useRef<ActiveCall | null>(null);
+    const socketRef = useRef<Socket | null>(null);
+
+    useEffect(() => {
+        localStreamRef.current = localStream;
+    }, [localStream]);
+
+    useEffect(() => {
+        activeCallRef.current = activeCall;
+    }, [activeCall]);
+
+    useEffect(() => {
+        socketRef.current = socket;
+    }, [socket]);
+
     // Peer connections for each participant (userId -> RTCPeerConnection)
     const peerConnections = useRef<Map<string, RTCPeerConnection>>(new Map());
     const iceCandidateQueue = useRef<Map<string, RTCIceCandidateInit[]>>(new Map());
@@ -94,16 +111,25 @@ export const useWebRTC = (userId: string, username: string) => {
         });
 
         // Call accepted
-        socket.on('call:accepted', ({ username }) => {
+        socket.on('call:accepted', ({ username, userId: acceptedUserId }) => {
             console.log('Call accepted by:', username);
-            setActiveCall((prev) =>
-                prev
-                    ? {
-                        ...prev,
-                        status: 'active',
-                    }
-                    : null
-            );
+            setActiveCall((prev) => {
+                if (!prev) return null;
+                // Add user to participants if needed
+                const exists = prev.participants.find(p => p.userId === acceptedUserId);
+                const newParticipants = exists ? prev.participants : [...prev.participants, { userId: acceptedUserId, username }];
+                return {
+                    ...prev,
+                    status: 'active',
+                    participants: newParticipants
+                };
+            });
+
+            // If we are already in the call (and not the one connecting), initiate connection to the new participant
+            if (acceptedUserId !== userId) {
+                console.log(`User ${username} joined. Initiating connection.`);
+                createPeerConnection(acceptedUserId, true);
+            }
         });
 
         // Call rejected
@@ -123,9 +149,14 @@ export const useWebRTC = (userId: string, username: string) => {
         // WebRTC Signaling: Receive offer
         socket.on('call:offer', async ({ fromUserId, offer }) => {
             console.log('Received offer from:', fromUserId);
-            // Store the offer to process after user accepts call and has media
             pendingOffers.current.set(fromUserId, offer);
-            console.log('Stored offer from:', fromUserId, 'Will process after accepting call');
+
+            // If call is already active, process immediately
+            if (activeCallRef.current?.status === 'active') {
+                handleReceiveOffer(fromUserId, offer);
+            } else {
+                console.log('Stored offer from:', fromUserId, 'Will process after accepting call');
+            }
         });
 
         // WebRTC Signaling: Receive answer
@@ -220,6 +251,33 @@ export const useWebRTC = (userId: string, username: string) => {
     };
 
     /**
+     * Create and send offer
+     */
+    const createAndSendOffer = async (participantUserId: string, pc: RTCPeerConnection, callId?: string) => {
+        try {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+
+            console.log('Created offer for:', participantUserId);
+
+            const currentCallId = callId || activeCallRef.current?.callId;
+
+            if (socketRef.current && currentCallId) {
+                console.log('Sending offer to backend, callId:', currentCallId);
+                socketRef.current.emit('call:offer', {
+                    callId: currentCallId,
+                    targetUserId: participantUserId,
+                    offer: { type: offer.type, sdp: offer.sdp },
+                });
+            } else {
+                console.error('Cannot send offer - socket or callId missing', { socket: !!socketRef.current, callId: currentCallId });
+            }
+        } catch (error) {
+            console.error('Error creating offer:', error);
+        }
+    };
+
+    /**
      * Create peer connection for a participant
      */
     const createPeerConnection = useCallback(
@@ -230,8 +288,8 @@ export const useWebRTC = (userId: string, username: string) => {
 
             const pc = new RTCPeerConnection(RTC_CONFIGURATION);
 
-            // Use provided stream or fall back to localStream
-            const mediaStream = stream || localStream;
+            // Use provided stream or fall back to localStreamRef
+            const mediaStream = stream || localStreamRef.current;
 
             // Add local stream tracks
             if (mediaStream) {
@@ -253,9 +311,9 @@ export const useWebRTC = (userId: string, username: string) => {
 
             // Handle ICE candidates
             pc.onicecandidate = (event) => {
-                if (event.candidate && socket && (callId || activeCall)) {
-                    socket.emit('call:ice-candidate', {
-                        callId: callId || activeCall!.callId,
+                if (event.candidate && socketRef.current && (callId || activeCallRef.current)) {
+                    socketRef.current.emit('call:ice-candidate', {
+                        callId: callId || activeCallRef.current!.callId,
                         targetUserId: participantUserId,
                         candidate: event.candidate.toJSON(),
                     });
@@ -279,35 +337,8 @@ export const useWebRTC = (userId: string, username: string) => {
 
             return pc;
         },
-        [localStream, socket, activeCall]
+        [] // Depend only on refs (stable)
     );
-
-    /**
-     * Create and send offer
-     */
-    const createAndSendOffer = async (participantUserId: string, pc: RTCPeerConnection, callId?: string) => {
-        try {
-            const offer = await pc.createOffer();
-            await pc.setLocalDescription(offer);
-
-            console.log('Created offer for:', participantUserId);
-
-            const currentCallId = callId || activeCall?.callId;
-
-            if (socket && currentCallId) {
-                console.log('Sending offer to backend, callId:', currentCallId);
-                socket.emit('call:offer', {
-                    callId: currentCallId,
-                    targetUserId: participantUserId,
-                    offer: { type: offer.type, sdp: offer.sdp },
-                });
-            } else {
-                console.error('Cannot send offer - socket or callId missing', { socket: !!socket, callId: currentCallId });
-            }
-        } catch (error) {
-            console.error('Error creating offer:', error);
-        }
-    };
 
     /**
      * Handle received offer
@@ -318,12 +349,12 @@ export const useWebRTC = (userId: string, username: string) => {
     const handleReceiveOffer = async (fromUserId: string, offer: RTCSessionDescriptionInit, stream?: MediaStream, callId?: string) => {
         try {
             console.log('Handling offer from:', fromUserId);
-            const mediaStream = stream || localStream;
+            const mediaStream = stream || localStreamRef.current;
             console.log('Local stream available:', !!mediaStream);
             console.log('Local stream tracks:', mediaStream?.getTracks().length);
 
-            // Use passed callId or fallback to activeCall
-            const currentCallId = callId || activeCall?.callId;
+            // Use passed callId or fallback to activeCallRef
+            const currentCallId = callId || activeCallRef.current?.callId;
 
             const pc = createPeerConnection(fromUserId, false, mediaStream || undefined, currentCallId);
             await pc.setRemoteDescription(new RTCSessionDescription(offer));
