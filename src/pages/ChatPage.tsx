@@ -264,6 +264,7 @@ export default function ChatPage() {
     const handleLogout = () => {
         localStorage.removeItem('user');
         localStorage.removeItem('token');
+        window.dispatchEvent(new Event('auth-change'));
         setUser(null);
         navigate('/login');
     };

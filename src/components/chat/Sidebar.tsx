@@ -62,7 +62,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                             placeholder="Search..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-transparent text-white text-xs py-2 px-2.5 rounded-xl focus:outline-none placeholder-slate-600"
+                            className="w-full bg-transparent text-white text-base py-2 px-2.5 rounded-xl focus:outline-none placeholder-slate-600"
                         />
                         {searchQuery && (
                             <button

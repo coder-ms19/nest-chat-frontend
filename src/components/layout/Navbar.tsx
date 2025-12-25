@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../ui/Button';
-import { Layers, MessageCircle, LogOut, UserPlus, Menu, X } from 'lucide-react';
+import { Layers, MessageCircle, LogOut, UserPlus, Menu, X, Maximize, Minimize } from 'lucide-react';
 
 interface NavbarProps {
     user: any;
@@ -14,6 +14,27 @@ interface NavbarProps {
 export default function Navbar({ user, isLoggedIn, onLogout, currentPage }: NavbarProps) {
     const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isFullscreen, setIsFullscreen] = useState(false);
+
+    const toggleFullScreen = () => {
+        if (!document.fullscreenElement) {
+            document.documentElement.requestFullscreen();
+            setIsFullscreen(true);
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+                setIsFullscreen(false);
+            }
+        }
+    };
+
+    useEffect(() => {
+        const handleFullscreenChange = () => {
+            setIsFullscreen(!!document.fullscreenElement);
+        };
+        document.addEventListener('fullscreenchange', handleFullscreenChange);
+        return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    }, []);
 
     return (
         <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#050508]/70 backdrop-blur-xl">
@@ -28,12 +49,21 @@ export default function Navbar({ user, isLoggedIn, onLogout, currentPage }: Navb
                     </div>
                     <div>
                         <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-white to-slate-400">
-                            MK
+                            MS
                         </span>
                     </div>
                 </Link>
 
                 <div className="flex items-center gap-4">
+                    {/* Fullscreen Toggle (Desktop) */}
+                    <button
+                        onClick={toggleFullScreen}
+                        className="hidden md:flex items-center justify-center p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                        title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+                    >
+                        {isFullscreen ? <Minimize className="w-5 h-5" /> : <Maximize className="w-5 h-5" />}
+                    </button>
+
                     {isLoggedIn ? (
                         <>
                             <Link to="/posts">
@@ -118,16 +148,15 @@ export default function Navbar({ user, isLoggedIn, onLogout, currentPage }: Navb
                             </Link>
                         </div>
                     )}
+                    {/* Mobile Menu Button */}
+                    <button
+                        className="md:hidden p-2 text-slate-300 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                    >
+                        {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+                    </button>
                 </div>
             </div>
-
-            {/* Mobile Menu Button */}
-            <button
-                className="md:hidden p-2 text-slate-300 hover:text-white rounded-lg hover:bg-white/5 transition-colors"
-                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-                {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
 
 
             {/* Mobile Menu */}
@@ -142,6 +171,14 @@ export default function Navbar({ user, isLoggedIn, onLogout, currentPage }: Navb
                             className="md:hidden bg-[#0f172a] border-b border-white/10 overflow-hidden"
                         >
                             <div className="p-4 space-y-4">
+                                {/* Mobile Fullscreen Toggle */}
+                                <button
+                                    onClick={toggleFullScreen}
+                                    className="w-full flex items-center justify-center gap-2 p-3 text-slate-300 hover:text-white bg-white/5 rounded-xl border border-white/5"
+                                >
+                                    {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
+                                    <span className="text-sm font-medium">{isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}</span>
+                                </button>
                                 {isLoggedIn ? (
                                     <>
                                         <div className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/5">
@@ -161,14 +198,12 @@ export default function Navbar({ user, isLoggedIn, onLogout, currentPage }: Navb
                                                     Feed
                                                 </Button>
                                             </Link>
-                                            {currentPage !== 'chat' && (
-                                                <Link to="/conversations" onClick={() => setIsMobileMenuOpen(false)}>
-                                                    <Button className="w-full justify-start bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 gap-2 rounded-xl h-12">
-                                                        <MessageCircle className="w-4 h-4" />
-                                                        Chat
-                                                    </Button>
-                                                </Link>
-                                            )}
+                                            <Link to="/conversations" onClick={() => setIsMobileMenuOpen(false)}>
+                                                <Button className="w-full justify-start bg-blue-500/10 text-blue-400 border border-blue-500/20 hover:bg-blue-500/20 gap-2 rounded-xl h-12">
+                                                    <MessageCircle className="w-4 h-4" />
+                                                    Chat
+                                                </Button>
+                                            </Link>
                                         </div>
 
                                         <div className="h-[1px] bg-white/10 my-2" />

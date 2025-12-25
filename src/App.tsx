@@ -1,5 +1,5 @@
-import { Routes, Route } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useState, useEffect, type JSX } from 'react';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ChatPage from './pages/ChatPage';
@@ -16,13 +16,30 @@ import { OngoingCallUI } from './components/OngoingCallUI';
 
 function App() {
   const [user, setUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
+  const checkUser = () => {
     const userStr = localStorage.getItem('user');
     if (userStr) {
       setUser(JSON.parse(userStr));
+    } else {
+      setUser(null);
     }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    checkUser();
+    window.addEventListener('auth-change', checkUser);
+    return () => window.removeEventListener('auth-change', checkUser);
   }, []);
+
+  const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
+    if (!user) {
+      return <Navigate to="/login" replace />;
+    }
+    return children;
+  };
 
   const content = (
     <>
@@ -32,19 +49,55 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
 
-        {/* Profile routes */}
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/profile/:id" element={<ProfilePage />} />
-
-        {/* Posts page */}
-        <Route path="/posts" element={<PostsPage />} />
-
-        {/* New separate pages for mobile-first experience */}
-        <Route path="/conversations" element={<ConversationsPage />} />
-        <Route path="/chat/:conversationId" element={<ChatConversationPage />} />
-
-        {/* Legacy combined chat page (still works on desktop) */}
-        <Route path="/chat" element={<ChatPage />} />
+        {/* Protected Routes */}
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile/:id"
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/posts"
+          element={
+            <ProtectedRoute>
+              <PostsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/conversations"
+          element={
+            <ProtectedRoute>
+              <ConversationsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/chat/:conversationId"
+          element={
+            <ProtectedRoute>
+              <ChatConversationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/chat"
+          element={
+            <ProtectedRoute>
+              <ChatPage />
+            </ProtectedRoute>
+          }
+        />
 
         {/* 404 Not Found - catch all routes */}
         <Route path="*" element={<NotFound />} />
@@ -59,6 +112,10 @@ function App() {
       )}
     </>
   );
+
+  if (isLoading) {
+    return <div className="h-screen w-screen bg-[#050508]" />;
+  }
 
   // Wrap with CallProvider only if user is logged in
   if (user) {

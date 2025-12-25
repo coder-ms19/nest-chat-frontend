@@ -20,6 +20,7 @@ export default function Login() {
 
         try {
             await authService.login({ email, password });
+            window.dispatchEvent(new Event('auth-change'));
             navigate('/');
         } catch (err: any) {
             console.error('Login error:', err);

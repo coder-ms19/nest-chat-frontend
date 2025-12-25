@@ -615,7 +615,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
 
                         <textarea
                             ref={textareaRef}
-                            className="flex-1 bg-transparent text-white text-[15px] placeholder-slate-500 resize-none max-h-32 min-h-[24px] py-1.5 focus:outline-none scrollbar-hide"
+                            className="flex-1 bg-transparent text-white text-base placeholder-slate-500 resize-none max-h-32 min-h-[24px] py-1.5 focus:outline-none scrollbar-hide"
                             placeholder="Type a message..."
                             value={text}
                             onFocus={handleFocus}

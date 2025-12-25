@@ -1,6 +1,8 @@
 import React, { useEffect } from 'react';
 import { useCall } from '../contexts/CallContext';
 import { playRingtone, stopRingtone } from '../utils/sounds';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Phone, Video, X } from 'lucide-react';
 
 export const IncomingCallModal: React.FC = () => {
     const { incomingCall, acceptCall, rejectCall } = useCall();
@@ -11,15 +13,12 @@ export const IncomingCallModal: React.FC = () => {
             playRingtone();
         }
 
-        // Stop ringtone when component unmounts or call ends
         return () => {
             stopRingtone();
         };
     }, [incomingCall]);
 
-    if (!incomingCall) {
-        return null;
-    }
+    if (!incomingCall) return null;
 
     const isVideoCall = incomingCall.callType.includes('VIDEO');
     const isGroupCall = incomingCall.callType.includes('GROUP');
@@ -35,84 +34,87 @@ export const IncomingCallModal: React.FC = () => {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/85 backdrop-blur-lg flex items-center justify-center z-[10000] animate-in fade-in duration-300">
-            <div className="bg-gradient-to-br from-purple-600 via-purple-700 to-indigo-800 rounded-3xl p-10 max-w-md w-[90%] shadow-2xl animate-in slide-in-from-bottom-10 zoom-in-95 duration-400">
-                {/* Header */}
-                <div className="text-center mb-8">
-                    <h2 className="text-white text-2xl font-semibold mb-2">
-                        Incoming {isVideoCall ? 'Video' : 'Audio'} Call
-                    </h2>
-                    {isGroupCall && (
-                        <span className="inline-block bg-white/20 text-white px-3 py-1 rounded-xl text-xs font-medium">
-                            Group
+        <AnimatePresence>
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/80 backdrop-blur-md"
+            >
+                {/* Background Wave Effects */}
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-purple-600/20 rounded-full blur-[100px] animate-pulse" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-indigo-600/20 rounded-full blur-[80px] animate-pulse delay-75" />
+                </div>
+
+                <motion.div
+                    initial={{ scale: 0.9, y: 20 }}
+                    animate={{ scale: 1, y: 0 }}
+                    exit={{ scale: 0.9, y: 20 }}
+                    className="relative w-full max-w-sm mx-4 bg-[#1a1a2e] border border-white/10 rounded-3xl p-8 shadow-2xl flex flex-col items-center"
+                >
+                    {/* Status Badge */}
+                    <div className="mb-8 flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full border border-white/5">
+                        <span className="relative flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-sky-500"></span>
                         </span>
-                    )}
-                </div>
+                        <span className="text-xs font-medium text-slate-300 uppercase tracking-wider">
+                            Incoming {isVideoCall ? 'Video' : 'Audio'} Call
+                        </span>
+                    </div>
 
-                {/* Caller Info */}
-                <div className="text-center mb-10">
-                    {incomingCall.initiator.avatarUrl ? (
-                        <img
-                            src={incomingCall.initiator.avatarUrl}
-                            alt={incomingCall.initiator.username}
-                            className="w-24 h-24 rounded-full object-cover border-4 border-white/30 mx-auto mb-5 animate-pulse shadow-lg"
-                        />
-                    ) : (
-                        <div className="w-24 h-24 rounded-full bg-white/20 flex items-center justify-center text-4xl font-semibold text-white mx-auto mb-5 border-4 border-white/30 animate-pulse">
-                            {incomingCall.initiator.username.charAt(0).toUpperCase()}
+                    {/* Caller Info */}
+                    <div className="relative mb-8 group">
+                        <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full blur opacity-40 group-hover:opacity-60 transition duration-1000 group-hover:duration-200 animate-pulse" />
+                        <div className="relative w-32 h-32 rounded-full ring-4 ring-[#1a1a2e] overflow-hidden bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center">
+                            {incomingCall.initiator.avatarUrl ? (
+                                <img
+                                    src={incomingCall.initiator.avatarUrl}
+                                    alt={incomingCall.initiator.username}
+                                    className="w-full h-full object-cover"
+                                />
+                            ) : (
+                                <span className="text-5xl font-bold text-white">
+                                    {incomingCall.initiator.username.charAt(0).toUpperCase()}
+                                </span>
+                            )}
                         </div>
-                    )}
-                    <h3 className="text-white text-3xl font-bold mb-2">
+                    </div>
+
+                    <h2 className="text-2xl font-bold text-white mb-2 text-center">
                         {incomingCall.initiator.username}
-                    </h3>
-                    <p className="text-white/90 text-base">
-                        {isVideoCall ? '📹 Video Call' : '📞 Voice Call'}
+                        {isGroupCall && <span className="text-sm font-normal text-slate-400 block mt-1">(Group Call)</span>}
+                    </h2>
+                    <p className="text-slate-400 text-sm mb-12 text-center">
+                        {isVideoCall ? "wants to start a video call" : "wants to start a voice call"}
                     </p>
-                </div>
 
-                {/* Actions */}
-                <div className="flex gap-5 justify-center">
-                    <button
-                        className="flex flex-col items-center gap-2 p-5 bg-red-500 hover:bg-red-600 text-white rounded-full transition-all duration-300 hover:scale-110 active:scale-95 shadow-lg min-w-[80px]"
-                        onClick={handleReject}
-                        aria-label="Reject call"
-                    >
-                        <svg
-                            width="28"
-                            height="28"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                    {/* Actions */}
+                    <div className="grid grid-cols-2 gap-6 w-full">
+                        <button
+                            onClick={handleReject}
+                            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-[#2a2a3e] hover:bg-red-500/10 hover:border-red-500/50 border border-transparent transition-all group"
                         >
-                            <path d="M23 1L1 23M1 1l22 22" />
-                        </svg>
-                        <span className="text-sm font-semibold">Decline</span>
-                    </button>
+                            <div className="w-12 h-12 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <X className="w-6 h-6" />
+                            </div>
+                            <span className="text-sm font-medium text-slate-400 group-hover:text-red-400">Decline</span>
+                        </button>
 
-                    <button
-                        className="flex flex-col items-center gap-2 p-5 bg-green-500 hover:bg-green-600 text-white rounded-full transition-all duration-300 hover:scale-110 active:scale-95 shadow-lg min-w-[80px]"
-                        onClick={handleAccept}
-                        aria-label="Accept call"
-                    >
-                        <svg
-                            width="28"
-                            height="28"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
+                        <button
+                            onClick={handleAccept}
+                            className="flex flex-col items-center justify-center gap-2 p-4 rounded-2xl bg-[#2a2a3e] hover:bg-green-500/10 hover:border-green-500/50 border border-transparent transition-all group"
                         >
-                            <path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" />
-                        </svg>
-                        <span className="text-sm font-semibold">Accept</span>
-                    </button>
-                </div>
-            </div>
-        </div>
+                            <div className="w-12 h-12 rounded-full bg-green-500/20 text-green-500 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                {isVideoCall ? <Video className="w-6 h-6" /> : <Phone className="w-6 h-6" />}
+                            </div>
+                            <span className="text-sm font-medium text-slate-400 group-hover:text-green-400">Accept</span>
+                        </button>
+                    </div>
+
+                </motion.div>
+            </motion.div>
+        </AnimatePresence>
     );
 };

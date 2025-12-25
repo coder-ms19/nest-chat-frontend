@@ -79,6 +79,7 @@ export default function Home() {
     const handleLogout = () => {
         localStorage.removeItem('user');
         localStorage.removeItem('token');
+        window.dispatchEvent(new Event('auth-change'));
         setUser(null);
         setIsLoggedIn(false);
         navigate('/login');
