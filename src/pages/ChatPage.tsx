@@ -102,6 +102,7 @@ export default function ChatPage() {
         });
 
         newSocket.on('user-presence-update', (data: { userId: string; isOnline: boolean; lastSeen: string | null }) => {
+            console.log('[ChatPage] Received presence update:', data);
             setOnlineUsers(prev => ({
                 ...prev,
                 [data.userId]: { isOnline: data.isOnline, lastSeen: data.lastSeen }
@@ -148,7 +149,7 @@ export default function ChatPage() {
                     const presenceRes = await api.post('/users/presence', { userIds: Array.from(userIds) });
                     setOnlineUsers(prev => ({
                         ...prev,
-                        ...presenceRes.data.reduce((acc: any, curr: any) => ({ ...acc, [curr.id]: { isOnline: curr.isOnline, lastSeen: curr.lastSeen } }), {})
+                        ...presenceRes.data
                     }));
                 } catch (e) {
                     // Silently fail or log
