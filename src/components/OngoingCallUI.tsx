@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useCall } from '../contexts/CallContext';
+import { Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff, ZoomIn, ZoomOut, RefreshCw } from 'lucide-react';
 
 export const OngoingCallUI: React.FC = () => {
     const {
@@ -20,7 +21,12 @@ export const OngoingCallUI: React.FC = () => {
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
     const [isLocalMain, setIsLocalMain] = useState(false);
+    const [zoomLevel, setZoomLevel] = useState(1);
     const constraintsRef = useRef<HTMLDivElement>(null);
+
+    const toggleZoom = () => {
+        setZoomLevel(prev => prev === 1 ? 2 : 1);
+    };
 
     // Attach local stream to video element
     useEffect(() => {
@@ -107,7 +113,8 @@ export const OngoingCallUI: React.FC = () => {
                                             autoPlay
                                             playsInline
                                             muted={mainIsLocal} // Mute if showing local stream
-                                            className={`w-full h-full object-cover ${mainIsLocal && isVideoOff ? 'hidden' : ''}`}
+                                            className={`w-full h-full object-cover transition-transform duration-300 ${mainIsLocal && isVideoOff ? 'hidden' : ''}`}
+                                            style={{ transform: `scale(${zoomLevel})` }}
                                         />
                                         {/* Fallback for blocked camera (Local Main) */}
                                         {mainIsLocal && isVideoOff && (
@@ -298,165 +305,79 @@ export const OngoingCallUI: React.FC = () => {
 
             {/* Controls */}
             <div className="bg-black/40 backdrop-blur-md px-6 py-6 border-t border-white/10">
-                <div className="flex items-center justify-center gap-4">
+                <div className="flex items-center justify-center gap-2 md:gap-4 flex-wrap">
                     {/* Mute Button */}
                     <button
-                        className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-lg ${isMuted
+                        className={`w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-lg ${isMuted
                             ? 'bg-red-500 hover:bg-red-600'
                             : 'bg-gray-700 hover:bg-gray-600'
                             }`}
                         onClick={toggleMute}
                         aria-label={isMuted ? 'Unmute' : 'Mute'}
                     >
-                        {isMuted ? (
-                            <svg
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="white"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <line x1="1" y1="1" x2="23" y2="23" />
-                                <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6" />
-                                <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23" />
-                                <line x1="12" y1="19" x2="12" y2="23" />
-                                <line x1="8" y1="23" x2="16" y2="23" />
-                            </svg>
-                        ) : (
-                            <svg
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="white"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                                <line x1="12" y1="19" x2="12" y2="23" />
-                                <line x1="8" y1="23" x2="16" y2="23" />
-                            </svg>
-                        )}
+                        {isMuted ? <MicOff className="w-5 h-5 md:w-6 md:h-6 text-white" /> : <Mic className="w-5 h-5 md:w-6 md:h-6 text-white" />}
                     </button>
 
                     {/* Video Toggle Button */}
                     {isVideoCall && (
                         <button
-                            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-lg ${isVideoOff
+                            className={`w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-lg ${isVideoOff
                                 ? 'bg-red-500 hover:bg-red-600'
                                 : 'bg-gray-700 hover:bg-gray-600'
                                 }`}
                             onClick={toggleVideo}
                             aria-label={isVideoOff ? 'Turn on camera' : 'Turn off camera'}
                         >
-                            {isVideoOff ? (
-                                <svg
-                                    width="24"
-                                    height="24"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="white"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <path d="M16 16v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h2m5.66 0H14a2 2 0 0 1 2 2v3.34l1 1L23 7v10" />
-                                    <line x1="1" y1="1" x2="23" y2="23" />
-                                </svg>
-                            ) : (
-                                <svg
-                                    width="24"
-                                    height="24"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="white"
-                                    strokeWidth="2"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                >
-                                    <polygon points="23 7 16 12 23 17 23 7" />
-                                    <rect x="1" y="5" width="15" height="14" rx="2" ry="2" />
-                                </svg>
-                            )}
+                            {isVideoOff ? <VideoOff className="w-5 h-5 md:w-6 md:h-6 text-white" /> : <Video className="w-5 h-5 md:w-6 md:h-6 text-white" />}
                         </button>
                     )}
 
-                    {/* Screen Share Button (Hidden on Mobile usually, but we keep it) */}
+                    {/* Screen Share Button */}
                     {isVideoCall && (
                         <button
-                            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-lg ${isScreenSharing
+                            className={`w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-lg ${isScreenSharing
                                 ? 'bg-green-500 hover:bg-green-600'
                                 : 'bg-gray-700 hover:bg-gray-600'
                                 }`}
                             onClick={toggleScreenShare}
                             aria-label={isScreenSharing ? 'Stop screen share' : 'Share screen'}
                         >
-                            <svg
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="white"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <path d="M13 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3" />
-                                <path d="M8 21h8" />
-                                <path d="M12 17v4" />
-                                <path d="M17 8l5-5" />
-                                <path d="M17 3h5v5" />
-                            </svg>
+                            <MonitorUp className="w-5 h-5 md:w-6 md:h-6 text-white" />
                         </button>
                     )}
 
                     {/* Switch Camera Button (Mobile) */}
                     {isVideoCall && !isScreenSharing && (
                         <button
-                            className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-lg bg-gray-700 hover:bg-gray-600`}
+                            className={`w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-lg bg-gray-700 hover:bg-gray-600`}
                             onClick={switchCamera}
                             aria-label="Switch Camera"
                         >
-                            <svg
-                                width="24"
-                                height="24"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="white"
-                                strokeWidth="2"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            >
-                                <path d="M20 10c0 6-8 6-8 10s-8-4-8-10 6-10 8-10 8 4 8 10z" opacity="0.5" />
-                                <path d="M4 11V9a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H6l-2 2z" opacity="0" />
-                                <path d="M22 17a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2l2-3h8l2 3h2a2 2 0 0 1 2 2v8z" />
-                                <circle cx="12" cy="13" r="4" />
-                                <path d="M21.5 5.5l-2-2" />
-                                <path d="M19.5 5.5l2-2" />
-                            </svg>
+                            <RefreshCw className="w-5 h-5 md:w-6 md:h-6 text-white" />
+                        </button>
+                    )}
+
+                    {/* Zoom Button */}
+                    {isVideoCall && (
+                        <button
+                            className={`w-12 h-12 md:w-14 md:h-14 rounded-full flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-lg ${zoomLevel > 1
+                                ? 'bg-blue-600 hover:bg-blue-700'
+                                : 'bg-gray-700 hover:bg-gray-600'
+                                }`}
+                            onClick={toggleZoom}
+                            aria-label="Toggle Zoom"
+                        >
+                            {zoomLevel > 1 ? <ZoomOut className="w-5 h-5 md:w-6 md:h-6 text-white" /> : <ZoomIn className="w-5 h-5 md:w-6 md:h-6 text-white" />}
                         </button>
                     )}
 
                     {/* End Call Button */}
                     <button
-                        className="w-14 h-14 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-lg"
+                        className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-red-600 hover:bg-red-700 flex items-center justify-center transition-all duration-300 hover:scale-110 active:scale-95 shadow-lg"
                         onClick={endCall}
                         aria-label="End call"
                     >
-                        <svg
-                            width="24"
-                            height="24"
-                            viewBox="0 0 24 24"
-                            fill="white"
-                            stroke="none"
-                        >
-                            <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.71l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.68-1.36-2.66-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z" />
-                        </svg>
+                        <PhoneOff className="w-6 h-6 md:w-7 md:h-7 text-white" />
                     </button>
                 </div>
             </div>

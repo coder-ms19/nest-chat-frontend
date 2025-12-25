@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { UserSearch } from './UserSearch';
 import { ConversationSkeleton } from '../ui/Skeleton';
-import { Users, MessageSquare, Home, LogOut, Search, UserPlus, X } from 'lucide-react';
+import { Users, MessageSquare, Search, UserPlus, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Avatar from '../ui/Avatar';
 
@@ -29,23 +28,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onlineUsers = {}
 }) => {
     const [activeTab, setActiveTab] = useState<'chats' | 'explore'>('chats');
-    const [showLogoutModal, setShowLogoutModal] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const navigate = useNavigate();
-
-    const handleLogout = () => {
-        setShowLogoutModal(true);
-    };
-
-    const confirmLogout = () => {
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
-        navigate('/login');
-    };
-
-    const handleGoHome = () => {
-        navigate('/');
-    };
 
     const filteredConversations = conversations.filter(conv => {
         if (!searchQuery) return true;
@@ -271,86 +254,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </AnimatePresence>
             </div>
 
-            {/* Footer - Minimalist */}
-            <div className="p-3 border-t border-white/5 bg-[#0f172a]/50 flex items-center gap-3 backdrop-blur-sm">
-                <Avatar
-                    src={currentUser?.avatarUrl}
-                    alt={currentUser?.username}
-                    size="md"
-                    className="ring-2 ring-white/15"
-                />
-                <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{currentUser?.username}</p>
-                    <div className="flex items-center gap-1.5">
-                        <div className="w-2 h-2 bg-green-500 rounded-full shadow-sm shadow-green-500/50" />
-                        <p className="text-[11px] text-green-400 font-medium">Online</p>
-                    </div>
-                </div>
-                <div className="flex items-center gap-1">
-                    <button
-                        onClick={handleGoHome}
-                        className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-                        title="Home"
-                    >
-                        <Home className="w-4 h-4" />
-                    </button>
-                    <button
-                        onClick={handleLogout}
-                        className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                        title="Logout"
-                    >
-                        <LogOut className="w-4 h-4" />
-                    </button>
-                </div>
-            </div>
+            {/* Content */}
 
-            {/* Logout Confirmation Modal */}
-            <AnimatePresence>
-                {showLogoutModal && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-                        onClick={() => setShowLogoutModal(false)}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.9, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ scale: 0.9, opacity: 0 }}
-                            onClick={(e) => e.stopPropagation()}
-                            className="bg-gradient-to-br from-[#1e293b] to-[#0f172a] border border-white/10 rounded-2xl p-6 max-w-sm w-full shadow-2xl"
-                        >
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="w-12 h-12 rounded-xl bg-red-600/20 flex items-center justify-center">
-                                    <LogOut className="w-6 h-6 text-red-400" />
-                                </div>
-                                <div>
-                                    <h3 className="text-lg font-bold text-white">Confirm Logout</h3>
-                                    <p className="text-sm text-slate-400">Are you sure you want to leave?</p>
-                                </div>
-                            </div>
-                            <p className="text-sm text-slate-400 mb-6">
-                                You'll need to log in again to access your messages.
-                            </p>
-                            <div className="flex gap-3">
-                                <button
-                                    onClick={() => setShowLogoutModal(false)}
-                                    className="flex-1 px-4 py-2.5 rounded-xl border-2 border-white/10 hover:border-white/20 hover:bg-white/5 text-white font-medium transition-all"
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    onClick={confirmLogout}
-                                    className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 text-white font-medium transition-all shadow-lg shadow-red-600/30"
-                                >
-                                    Logout
-                                </button>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+            {/* Content End */}
         </div>
     );
 };

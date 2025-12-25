@@ -86,40 +86,38 @@ export default function Register() {
                     className="hidden md:block space-y-8"
                 >
                     {/* Profile Section */}
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-6">
                         <div className="relative group">
-                            <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-full blur-2xl opacity-50 group-hover:opacity-75 transition-opacity duration-500 animate-pulse" />
-                            <div className="relative w-20 h-20 rounded-full overflow-hidden shadow-2xl border-4 border-white/10 group-hover:scale-105 transition-transform duration-500">
+                            <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 rounded-full blur-2xl opacity-40 group-hover:opacity-60 transition-opacity duration-500 animate-pulse" />
+                            <div className="relative w-24 h-24 rounded-full overflow-hidden shadow-2xl border-4 border-white/10 group-hover:scale-105 transition-transform duration-500 ring-4 ring-white/5">
                                 <img
-                                    src="https://res.cloudinary.com/manish19/image/upload/v1752930717/spring/profile/kjtwypqrvzgapyutbmlh.jpg"
+                                    src="https://res.cloudinary.com/manish19/image/upload/v1766670690/social_media_app/avatars/v18pqflwyzixmwnbsqo2.jpg"
                                     alt="Manish Keer"
                                     className="w-full h-full object-cover"
                                 />
                             </div>
                         </div>
                         <div>
-                            <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                            <h3 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent mb-1">
                                 Manish Keer
                             </h3>
-                            <p className="text-slate-400">Full Stack Developer</p>
+                            <div className="flex items-center gap-2 text-emerald-400 text-sm font-medium bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20 w-fit">
+                                <Sparkles className="w-3 h-3" />
+                                Software Engineer
+                            </div>
                         </div>
                     </div>
 
                     {/* Welcome Message */}
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="relative">
-                                <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl blur-md opacity-50" />
-                                <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 via-purple-600 to-pink-600 flex items-center justify-center shadow-lg">
-                                    <Sparkles className="w-6 h-6 text-white" />
-                                </div>
-                            </div>
-                            <h1 className="text-4xl font-black bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                                Join Us Today!
-                            </h1>
-                        </div>
-                        <p className="text-lg text-slate-300 leading-relaxed">
-                            Create your account and start connecting with your team in seconds.
+                    <div className="space-y-4 pt-4">
+                        <h1 className="text-5xl font-black text-white leading-tight">
+                            Join Us <br />
+                            <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                                Today!
+                            </span>
+                        </h1>
+                        <p className="text-lg text-slate-400 leading-relaxed max-w-md">
+                            Create your account to start your professional journey and collaborate with the team.
                         </p>
                     </div>
 

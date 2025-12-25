@@ -7,6 +7,7 @@ import { CreateGroupModal } from '../components/chat/CreateGroupModal';
 import { useNavigate } from 'react-router-dom';
 import { useMessageReadTracking } from '../hooks/useMessageReadTracking';
 import { playReceiveSound } from '../utils/sounds';
+import Navbar from '../components/layout/Navbar';
 
 export default function ChatPage() {
     const navigate = useNavigate();
@@ -260,57 +261,69 @@ export default function ChatPage() {
         setIsMobileSidebarOpen(true);
     };
 
+    const handleLogout = () => {
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        setUser(null);
+        navigate('/login');
+    };
+
     if (!user) return null;
 
     return (
         <div className="flex h-screen bg-gradient-to-br from-[#1e293b] to-[#0f172a] font-sans overflow-hidden">
-            {/* Sidebar - Responsive width optimization */}
-            <div className={`
-                ${isMobileSidebarOpen || !activeConversationId ? 'flex w-full' : 'hidden'} 
-                md:flex md:w-80 lg:w-[360px] xl:w-[400px] flex-shrink-0
-            `}>
-                <Sidebar
-                    conversations={conversations}
-                    activeConversationId={activeConversationId}
-                    onSelectConversation={handleSelectConversation}
-                    onCreateGroup={() => setIsModalOpen(true)}
-                    onStartChat={handleStartChat}
-                    currentUser={user}
-                    isLoading={isLoadingConversations}
-                    onlineUsers={onlineUsers}
-                />
-            </div>
+            {/* Navbar */}
+            <Navbar user={user} isLoggedIn={true} onLogout={handleLogout} currentPage="chat" />
 
-            {/* Chat Area - Constrained max-width for readability on large screens */}
-            <div className={`
+            <div className="flex flex-1 pt-20 h-full overflow-hidden">
+                {/* Sidebar - Responsive width optimization */}
+                <div className={`
+                    ${isMobileSidebarOpen || !activeConversationId ? 'flex w-full' : 'hidden'} 
+                    md:flex md:w-80 lg:w-[360px] xl:w-[400px] flex-shrink-0 h-full
+                `}>
+                    <Sidebar
+                        conversations={conversations}
+                        activeConversationId={activeConversationId}
+                        onSelectConversation={handleSelectConversation}
+                        onCreateGroup={() => setIsModalOpen(true)}
+                        onStartChat={handleStartChat}
+                        currentUser={user}
+                        isLoading={isLoadingConversations}
+                        onlineUsers={onlineUsers}
+                    />
+                </div>
+
+                {/* Chat Area - Constrained max-width for readability on large screens */}
+                <div className={`
                 ${!isMobileSidebarOpen || activeConversationId ? 'flex' : 'hidden'} 
                 md:flex flex-1 min-w-0
             `}>
-                <ChatArea
-                    conversation={activeConversation}
-                    messages={messages}
-                    onSendMessage={handleSendMessage}
-                    onTyping={handleTyping}
-                    onStopTyping={handleStopTyping}
-                    typingUsers={typingUsers[activeConversationId || ''] || []}
-                    currentUser={user}
-                    onRefresh={refreshMessages}
-                    onBack={handleBackToList}
-                    isLoading={isLoadingMessages}
-                    onlineUsers={onlineUsers}
-                />
-            </div>
+                    <ChatArea
+                        conversation={activeConversation}
+                        messages={messages}
+                        onSendMessage={handleSendMessage}
+                        onTyping={handleTyping}
+                        onStopTyping={handleStopTyping}
+                        typingUsers={typingUsers[activeConversationId || ''] || []}
+                        currentUser={user}
+                        onRefresh={refreshMessages}
+                        onBack={handleBackToList}
+                        isLoading={isLoadingMessages}
+                        onlineUsers={onlineUsers}
+                    />
+                </div>
 
-            {isModalOpen && (
-                <CreateGroupModal
-                    currentUserId={user.id}
-                    onClose={() => setIsModalOpen(false)}
-                    onCreated={() => {
-                        fetchConversations();
-                        setIsModalOpen(false);
-                    }}
-                />
-            )}
+                {isModalOpen && (
+                    <CreateGroupModal
+                        currentUserId={user.id}
+                        onClose={() => setIsModalOpen(false)}
+                        onCreated={() => {
+                            fetchConversations();
+                            setIsModalOpen(false);
+                        }}
+                    />
+                )}
+            </div>
         </div>
     );
 }
