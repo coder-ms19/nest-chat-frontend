@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '../ui/Button';
 import { MessageBubble } from './MessageBubble';
 import { ChatHeaderSkeleton, MessageSkeleton } from '../ui/Skeleton';
-import { Send, MoreVertical, Trash2, ArrowLeft, Info, UserPlus, Users, AlertTriangle, Paperclip, Smile, X } from 'lucide-react';
+import { Send, MoreVertical, Trash2, ArrowLeft, Info, UserPlus, Users, AlertTriangle, Paperclip, Smile, X, Phone, Video } from 'lucide-react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { GroupDetailsModal } from './GroupDetailsModal';
 import { EmojiPicker } from './EmojiPicker';
@@ -11,6 +11,8 @@ import api from '../../api';
 import { playSendSound } from '../../utils/sounds';
 import { MediaModal } from './MediaModal';
 import { MediaUploadModal } from './MediaUploadModal';
+import { CallButton } from '../CallButton';
+import { useCall } from '../../contexts/CallContext';
 
 interface ChatAreaProps {
     conversation: any;
@@ -54,6 +56,9 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const inputContainerRef = useRef<HTMLDivElement>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // Call functionality
+    const { initiateCall } = useCall();
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -170,7 +175,7 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
             return { id, file, previewUrl, type };
         });
 
-        setSelectedFiles((prev:any) => [...prev, ...newFiles]);
+        setSelectedFiles((prev: any) => [...prev, ...newFiles]);
         setShowMediaUploadModal(true);
     };
 
@@ -326,6 +331,46 @@ export const ChatArea: React.FC<ChatAreaProps> = ({
                             </span>
                         )}
                     </div>
+                </div>
+
+                {/* Call Buttons */}
+                <div className="flex items-center gap-2">
+                    {!conversation.isGroup && otherUser && (
+                        <CallButton
+                            recipientId={otherUser.id}
+                            recipientName={otherUser.username}
+                            conversationId={conversation.id}
+                        />
+                    )}
+
+                    {conversation.isGroup && (
+                        <>
+                            <button
+                                onClick={() => {
+                                    const participantIds = conversation.users
+                                        .filter((u: any) => u.userId !== currentUser.id)
+                                        .map((u: any) => u.userId);
+                                    initiateCall(participantIds, 'AUDIO_GROUP', conversation.id);
+                                }}
+                                className="p-2 md:p-2.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition-all border border-transparent hover:border-white/20"
+                                title="Audio call"
+                            >
+                                <Phone size={18} className="md:w-5 md:h-5" />
+                            </button>
+                            <button
+                                onClick={() => {
+                                    const participantIds = conversation.users
+                                        .filter((u: any) => u.userId !== currentUser.id)
+                                        .map((u: any) => u.userId);
+                                    initiateCall(participantIds, 'VIDEO_GROUP', conversation.id);
+                                }}
+                                className="p-2 md:p-2.5 text-gray-400 hover:text-white hover:bg-white/10 rounded-xl transition-all border border-transparent hover:border-white/20"
+                                title="Video call"
+                            >
+                                <Video size={18} className="md:w-5 md:h-5" />
+                            </button>
+                        </>
+                    )}
                 </div>
 
                 {conversation.isGroup && (

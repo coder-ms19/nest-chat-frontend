@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ChatPage from './pages/ChatPage';
@@ -9,33 +10,67 @@ import NotFound from './pages/NotFound';
 import PostsPage from './pages/PostsPage';
 import AuthCallback from './pages/AuthCallback';
 import ProfilePage from './pages/ProfilePage';
+import { CallProvider } from './contexts/CallContext';
+import { IncomingCallModal } from './components/IncomingCallModal';
+import { OngoingCallUI } from './components/OngoingCallUI';
 
 function App() {
-  return (
-    <Routes>
-      <Route path="/" element={<Home />} />
-      <Route path="/login" element={<Login />} />
-      <Route path="/register" element={<Register />} />
-      <Route path="/auth/callback" element={<AuthCallback />} />
+  const [user, setUser] = useState<any>(null);
 
-      {/* Profile routes */}
-      <Route path="/profile" element={<ProfilePage />} />
-      <Route path="/profile/:id" element={<ProfilePage />} />
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      setUser(JSON.parse(userStr));
+    }
+  }, []);
 
-      {/* Posts page */}
-      <Route path="/posts" element={<PostsPage />} />
+  const content = (
+    <>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
 
-      {/* New separate pages for mobile-first experience */}
-      <Route path="/conversations" element={<ConversationsPage />} />
-      <Route path="/chat/:conversationId" element={<ChatConversationPage />} />
+        {/* Profile routes */}
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/profile/:id" element={<ProfilePage />} />
 
-      {/* Legacy combined chat page (still works on desktop) */}
-      <Route path="/chat" element={<ChatPage />} />
+        {/* Posts page */}
+        <Route path="/posts" element={<PostsPage />} />
 
-      {/* 404 Not Found - catch all routes */}
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+        {/* New separate pages for mobile-first experience */}
+        <Route path="/conversations" element={<ConversationsPage />} />
+        <Route path="/chat/:conversationId" element={<ChatConversationPage />} />
+
+        {/* Legacy combined chat page (still works on desktop) */}
+        <Route path="/chat" element={<ChatPage />} />
+
+        {/* 404 Not Found - catch all routes */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+
+      {/* Global Call UI Components */}
+      {user && (
+        <>
+          <IncomingCallModal />
+          <OngoingCallUI />
+        </>
+      )}
+    </>
   );
+
+  // Wrap with CallProvider only if user is logged in
+  if (user) {
+    return (
+      <CallProvider userId={user.id} username={user.username}>
+        {content}
+      </CallProvider>
+    );
+  }
+
+  return content;
 }
 
 export default App;
+

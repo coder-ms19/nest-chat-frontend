@@ -5,6 +5,7 @@ class SoundManager {
     private enabled: boolean = true;
     private sendAudio: HTMLAudioElement | null = null;
     private receiveAudio: HTMLAudioElement | null = null;
+    private ringtoneInterval: number | null = null;
 
     constructor() {
         // Initialize sound enabled state from localStorage
@@ -108,6 +109,73 @@ class SoundManager {
         }
     }
 
+    /**
+     * Play a pleasant ringtone pattern (ascending tones)
+     */
+    private playRingtonePattern() {
+        if (!this.enabled) return;
+
+        try {
+            const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const now = audioContext.currentTime;
+
+            // Create a pleasant ascending pattern
+            const notes = [523.25, 659.25, 783.99]; // C5, E5, G5
+            const noteDuration = 0.3;
+            const gap = 0.05;
+
+            notes.forEach((freq, index) => {
+                const startTime = now + index * (noteDuration + gap);
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+
+                osc.frequency.value = freq;
+                osc.type = 'sine';
+
+                // Envelope
+                gain.gain.setValueAtTime(0, startTime);
+                gain.gain.linearRampToValueAtTime(0.2, startTime + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.01, startTime + noteDuration);
+
+                osc.start(startTime);
+                osc.stop(startTime + noteDuration);
+            });
+        } catch (error) {
+            console.error('Error playing ringtone pattern:', error);
+        }
+    }
+
+    /**
+     * Start playing ringtone (loops until stopped)
+     */
+    playRingtone() {
+        if (!this.enabled) return;
+
+        // Stop any existing ringtone
+        this.stopRingtone();
+
+        // Play immediately
+        this.playRingtonePattern();
+
+        // Then repeat every 2 seconds
+        this.ringtoneInterval = window.setInterval(() => {
+            this.playRingtonePattern();
+        }, 2000);
+    }
+
+    /**
+     * Stop the ringtone
+     */
+    stopRingtone() {
+        if (this.ringtoneInterval !== null) {
+            clearInterval(this.ringtoneInterval);
+            this.ringtoneInterval = null;
+        }
+    }
+
     playSendSound() {
         if (!this.enabled) return;
 
@@ -174,5 +242,8 @@ export const soundManager = new SoundManager();
 // Convenience functions
 export const playSendSound = () => soundManager.playSendSound();
 export const playReceiveSound = () => soundManager.playReceiveSound();
+export const playRingtone = () => soundManager.playRingtone();
+export const stopRingtone = () => soundManager.stopRingtone();
 export const toggleSound = () => soundManager.toggle();
 export const isSoundEnabled = () => soundManager.isEnabled();
+
