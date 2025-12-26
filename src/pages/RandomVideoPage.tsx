@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { io, Socket } from 'socket.io-client';
 import {
     Video,
@@ -33,15 +33,20 @@ const RandomVideoPage = () => {
     const [isMuted, setIsMuted] = useState(false);
     const [isVideoOff, setIsVideoOff] = useState(false);
     const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
+    const [showControls, setShowControls] = useState(true);
+    const controlsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // Refs
     const localVideoRef = useRef<HTMLVideoElement>(null);
     const remoteVideoRef = useRef<HTMLVideoElement>(null);
+    const localPipVideoRef = useRef<HTMLVideoElement>(null);
+    const remotePipVideoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const peerConnection = useRef<RTCPeerConnection | null>(null);
     const socketRef = useRef<Socket | null>(null);
 
     const [isSwapped, setIsSwapped] = useState(false);
+    const [isDragging, setIsDragging] = useState(false);
 
     // Initialize Socket
     useEffect(() => {
@@ -88,6 +93,91 @@ const RandomVideoPage = () => {
         };
     }, []); // Run once on mount
 
+    // Attach local stream to video element
+    useEffect(() => {
+        if (localVideoRef.current && localStream) {
+            localVideoRef.current.srcObject = localStream;
+            localVideoRef.current.play().catch(err => {
+                console.error('Error playing local video:', err);
+            });
+        }
+    }, [localStream]);
+
+    // Attach remote stream to video element
+    useEffect(() => {
+        if (remoteVideoRef.current && remoteStream) {
+            console.log('Attaching remote stream to video element');
+            remoteVideoRef.current.srcObject = remoteStream;
+
+            // Force play with error handling
+            const playPromise = remoteVideoRef.current.play();
+            if (playPromise !== undefined) {
+                playPromise
+                    .then(() => {
+                        console.log('Remote video playing successfully');
+                    })
+                    .catch(err => {
+                        console.error('Error playing remote video:', err);
+                        // Retry after a short delay
+                        setTimeout(() => {
+                            if (remoteVideoRef.current) {
+                                remoteVideoRef.current.play().catch(console.error);
+                            }
+                        }, 500);
+                    });
+            }
+        }
+    }, [remoteStream]);
+
+    // Attach streams to PiP video elements
+    useEffect(() => {
+        if (localPipVideoRef.current && localStream) {
+            localPipVideoRef.current.srcObject = localStream;
+            localPipVideoRef.current.play().catch(console.error);
+        }
+    }, [localStream]);
+
+    useEffect(() => {
+        if (remotePipVideoRef.current && remoteStream) {
+            remotePipVideoRef.current.srcObject = remoteStream;
+            remotePipVideoRef.current.play().catch(console.error);
+        }
+    }, [remoteStream]);
+
+    // Auto-hide controls functionality
+    useEffect(() => {
+        const resetControlsTimer = () => {
+            setShowControls(true);
+            if (controlsTimeoutRef.current) {
+                clearTimeout(controlsTimeoutRef.current);
+            }
+            controlsTimeoutRef.current = setTimeout(() => {
+                setShowControls(false);
+            }, 3000); // Hide after 3 seconds
+        };
+
+        // Show controls on any interaction
+        const handleInteraction = () => {
+            resetControlsTimer();
+        };
+
+        window.addEventListener('mousemove', handleInteraction);
+        window.addEventListener('touchstart', handleInteraction);
+        window.addEventListener('click', handleInteraction);
+
+        // Initial timer
+        resetControlsTimer();
+
+        return () => {
+            if (controlsTimeoutRef.current) {
+                clearTimeout(controlsTimeoutRef.current);
+            }
+            window.removeEventListener('mousemove', handleInteraction);
+            window.removeEventListener('touchstart', handleInteraction);
+            window.removeEventListener('click', handleInteraction);
+        };
+    }, []);
+
     // WebRTC & Socket Events
     useEffect(() => {
         if (!socket) return;
@@ -98,7 +188,7 @@ const RandomVideoPage = () => {
         });
 
         socket.on('match-found', async ({ role, partnerName }) => {
-            console.log('Match found! Role:', role);
+            console.log('Match found! Role:', role, 'Partner:', partnerName);
             setStatus('connected');
             setPartnerName(partnerName);
             setRandomCallActive(partnerName);
@@ -109,16 +199,23 @@ const RandomVideoPage = () => {
 
             // Add local tracks
             if (localStream) {
-                localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+                localStream.getTracks().forEach(track => {
+                    console.log('Adding track to peer connection:', track.kind);
+                    pc.addTrack(track, localStream);
+                });
+            } else {
+                console.warn('No local stream available when creating peer connection');
             }
 
             // Handle remote tracks
             pc.ontrack = (event) => {
+                console.log('ontrack event received:', event.track.kind);
                 const [remote] = event.streams;
-                console.log('Received remote stream:', remote);
-                setRemoteStream(remote);
-                if (remoteVideoRef.current) {
-                    remoteVideoRef.current.srcObject = remote;
+                if (remote) {
+                    console.log('Setting remote stream with tracks:', remote.getTracks().length);
+                    setRemoteStream(remote);
+                } else {
+                    console.error('No remote stream in ontrack event');
                 }
             };
 
@@ -127,6 +224,22 @@ const RandomVideoPage = () => {
                 if (event.candidate) {
                     socket.emit('signal-ice-candidate', { candidate: event.candidate });
                 }
+            };
+
+            // Handle connection state changes
+            pc.onconnectionstatechange = () => {
+                console.log('Connection state:', pc.connectionState);
+                if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+                    toast.error('Connection issue detected', {
+                        duration: 2000,
+                        position: 'top-center',
+                    });
+                }
+            };
+
+            // Handle ICE connection state
+            pc.oniceconnectionstatechange = () => {
+                console.log('ICE connection state:', pc.iceConnectionState);
             };
 
             if (role === 'initiator') {
@@ -154,7 +267,11 @@ const RandomVideoPage = () => {
         socket.on('signal-ice-candidate', async ({ candidate }) => {
             const pc = peerConnection.current;
             if (!pc) return;
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            try {
+                await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (err) {
+                console.error('Error adding ICE candidate:', err);
+            }
         });
 
         socket.on('match-ended', () => {
@@ -175,7 +292,7 @@ const RandomVideoPage = () => {
             socket.off('signal-ice-candidate');
             socket.off('match-ended');
         };
-    }, [socket, localStream]);
+    }, [socket, localStream, setRandomCallActive, setRandomCallSearching, setRandomCallIdle]);
 
     const handleStartSearch = () => {
         if (!socket) return;
@@ -361,22 +478,105 @@ const RandomVideoPage = () => {
                 sm:ring-1 sm:ring-white/10
             `}>
 
-                {/* Header / Top Bar */}
-                <div className="absolute top-0 left-0 right-0 z-30 p-4 sm:p-6 flex justify-between items-start bg-gradient-to-b from-black/70 via-black/30 to-transparent pointer-events-none">
-                    <div className="pointer-events-auto space-y-2">
-                        <h1 className="text-2xl sm:text-3xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 drop-shadow-[0_2px_10px_rgba(168,85,247,0.4)] animate-gradient">
-                            Random Connect
-                        </h1>
-                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-xl border transition-all duration-300 w-fit shadow-lg
-                            ${status === 'connected' ? 'border-green-500/50 bg-green-500/10' : status === 'searching' ? 'border-yellow-500/50 bg-yellow-500/10' : 'border-white/20'}
-                        `}>
-                            <div className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${status === 'connected' ? 'bg-green-500 shadow-[0_0_12px_rgba(34,197,94,0.8)] animate-pulse' : status === 'searching' ? 'bg-yellow-500 shadow-[0_0_12px_rgba(234,179,8,0.8)] animate-pulse' : 'bg-gray-500'}`} />
-                            <span className="text-xs sm:text-sm font-semibold text-white/95">
-                                {status === 'connected' ? `🎯 ${partnerName}` : status === 'searching' ? '🔍 Searching...' : '⏸️ Idle'}
-                            </span>
-                        </div>
-                    </div>
-                </div>
+                {/* Header / Top Bar with Auto-hide */}
+                <AnimatePresence>
+                    {showControls && (
+                        <motion.div
+                            initial={{ y: -100, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: -100, opacity: 0 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className="absolute top-0 left-0 right-0 z-30 p-4 sm:p-6 flex justify-between items-start bg-gradient-to-b from-black/70 via-black/30 to-transparent pointer-events-none"
+                        >
+                            <div className="pointer-events-auto space-y-2">
+                                <h1 className="text-2xl sm:text-3xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-purple-400 via-pink-400 to-purple-400 drop-shadow-[0_2px_10px_rgba(168,85,247,0.4)] animate-gradient">
+                                    Random Connect
+                                </h1>
+                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full bg-black/50 backdrop-blur-xl border transition-all duration-300 w-fit shadow-lg
+                                    ${status === 'connected' ? 'border-green-500/50 bg-green-500/10' : status === 'searching' ? 'border-yellow-500/50 bg-yellow-500/10' : 'border-white/20'}
+                                `}>
+                                    <div className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${status === 'connected' ? 'bg-green-500 shadow-[0_0_12px_rgba(34,197,94,0.8)] animate-pulse' : status === 'searching' ? 'bg-yellow-500 shadow-[0_0_12px_rgba(234,179,8,0.8)] animate-pulse' : 'bg-gray-500'}`} />
+                                    <span className="text-xs sm:text-sm font-semibold text-white/95">
+                                        {status === 'connected' ? `🎯 ${partnerName}` : status === 'searching' ? '🔍 Searching...' : '⏸️ Idle'}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Premium Creator Branding - Right Side */}
+                            <motion.a
+                                href="https://github.com/manish-keer19"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="pointer-events-auto group relative"
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.98 }}
+                            >
+                                {/* Animated gradient background */}
+                                <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 via-pink-600/20 to-blue-600/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
+
+                                <div className="relative flex items-center gap-3 px-4 py-2.5 bg-gradient-to-br from-black/80 via-black/70 to-black/80 backdrop-blur-2xl rounded-2xl border border-white/10 group-hover:border-purple-500/50 transition-all duration-500 shadow-2xl group-hover:shadow-purple-500/30 overflow-hidden">
+
+                                    {/* Shine effect on hover */}
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+
+                                    {/* Avatar with premium styling */}
+                                    <div className="relative flex-shrink-0">
+                                        {/* Rotating gradient ring */}
+                                        <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 rounded-full animate-spin-slow opacity-75 blur-sm"></div>
+
+                                        <div className="relative w-11 h-11 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-blue-500 p-[2px] shadow-xl">
+                                            <div className="w-full h-full rounded-full bg-black/90 p-[2px]">
+                                                <img
+                                                    src="https://res.cloudinary.com/manish19/image/upload/v1766670690/social_media_app/avatars/v18pqflwyzixmwnbsqo2.jpg"
+                                                    alt="Manish Keer"
+                                                    className="w-full h-full rounded-full object-cover"
+                                                />
+                                            </div>
+                                        </div>
+
+                                        {/* Verified badge */}
+                                        <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg border-2 border-black">
+                                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                            </svg>
+                                        </div>
+                                    </div>
+
+                                    {/* Creator Info - Enhanced Typography */}
+                                    <div className="hidden sm:flex flex-col min-w-[120px]">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-[10px] uppercase tracking-wider text-purple-400/80 font-bold">Crafted by</span>
+                                            <div className="w-1 h-1 rounded-full bg-purple-400/50"></div>
+                                        </div>
+                                        <span className="text-base font-black bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent group-hover:from-purple-400 group-hover:via-pink-400 group-hover:to-purple-400 transition-all duration-500">
+                                            Manish Keer
+                                        </span>
+                                        <div className="flex items-center gap-1 mt-0.5">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></div>
+                                            <span className="text-[10px] text-green-400/80 font-semibold">Software Engineer</span>
+                                        </div>
+                                    </div>
+
+                                    {/* GitHub Icon with animation */}
+                                    <div className="relative">
+                                        <div className="absolute inset-0 bg-purple-500/20 rounded-lg blur-md opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                        <svg
+                                            className="relative w-6 h-6 text-white/60 group-hover:text-purple-400 transition-all duration-300 group-hover:rotate-12"
+                                            fill="currentColor"
+                                            viewBox="0 0 24 24"
+                                        >
+                                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+                                        </svg>
+                                    </div>
+
+                                    {/* Floating particles effect */}
+                                    <div className="absolute top-0 left-0 w-1 h-1 bg-purple-400 rounded-full opacity-0 group-hover:opacity-100 group-hover:animate-ping"></div>
+                                    <div className="absolute bottom-0 right-0 w-1 h-1 bg-pink-400 rounded-full opacity-0 group-hover:opacity-100 group-hover:animate-ping" style={{ animationDelay: '0.3s' }}></div>
+                                </div>
+                            </motion.a>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
                 {/* Video Area */}
                 <div
@@ -394,17 +594,10 @@ const RandomVideoPage = () => {
                             status === 'connected' && remoteStream ? (
                                 <video
                                     key="main-remote"
-                                    ref={(el) => {
-                                        if (el && remoteStream && el.srcObject !== remoteStream) {
-                                            el.srcObject = remoteStream;
-                                        }
-                                    }}
+                                    ref={remoteVideoRef}
                                     autoPlay
                                     playsInline
                                     className="w-full h-full object-cover"
-                                    onLoadedMetadata={(e) => {
-                                        e.currentTarget.play().catch(console.error);
-                                    }}
                                 />
                             ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 bg-black/80">
@@ -433,11 +626,7 @@ const RandomVideoPage = () => {
                             localStream && !isVideoOff ? (
                                 <video
                                     key="main-local"
-                                    ref={(el) => {
-                                        if (el && localStream && el.srcObject !== localStream) {
-                                            el.srcObject = localStream;
-                                        }
-                                    }}
+                                    ref={localVideoRef}
                                     autoPlay
                                     muted
                                     playsInline
@@ -451,153 +640,228 @@ const RandomVideoPage = () => {
                         )}
                     </div>
 
-                    {/* PiP Video (Floating) - Shows Local by default, Remote when swapped */}
-                    <motion.div
-                        layout
-                        drag
-                        dragConstraints={containerRef}
-                        dragElastic={0.1}
-                        whileDrag={{ scale: 1.1, cursor: 'grabbing' }}
-                        onClick={() => {
-                            setIsSwapped(!isSwapped);
-                            toast.success(isSwapped ? 'Switched to remote view' : 'Switched to your view', {
-                                duration: 1500,
-                                position: 'top-center',
-                            });
-                        }}
-                        className={`
-                            absolute z-20 overflow-hidden shadow-2xl border bg-black/80 cursor-grab active:cursor-grabbing
-                            top-4 right-4 
-                            w-[120px] h-[180px] sm:w-[150px] sm:h-[100px] md:w-[240px] md:h-[160px] lg:w-[320px] lg:h-[213px]
-                            rounded-xl transition-all duration-300
-                            ${isSwapped ? 'ring-2 ring-purple-500 border-purple-500/50' : 'border-white/20'}
-                        `}
-                    >
-                        {!isSwapped ? (
-                            // Default PiP: Show Local Video
-                            localStream && !isVideoOff ? (
-                                <video
-                                    key="pip-local"
-                                    ref={(el) => {
-                                        if (el && localStream && el.srcObject !== localStream) {
-                                            el.srcObject = localStream;
-                                        }
-                                    }}
-                                    autoPlay
-                                    muted
-                                    playsInline
-                                    className="w-full h-full object-cover transform scale-x-[-1]"
-                                />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                                    <VideoOff className="w-8 h-8 text-gray-400" />
-                                </div>
-                            )
-                        ) : (
-                            // Swapped PiP: Show Remote Video
-                            status === 'connected' && remoteStream ? (
-                                <video
-                                    key="pip-remote"
-                                    ref={(el) => {
-                                        if (el && remoteStream && el.srcObject !== remoteStream) {
-                                            el.srcObject = remoteStream;
-                                        }
-                                    }}
-                                    autoPlay
-                                    playsInline
-                                    className="w-full h-full object-cover"
-                                />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gray-800">
-                                    <User className="w-8 h-8 text-gray-400" />
-                                </div>
-                            )
-                        )}
-
-                        <div className="absolute bottom-2 left-2 px-2 py-1 bg-black/60 backdrop-blur-sm rounded text-[10px] sm:text-xs font-medium border border-white/10">
-                            {!isSwapped ? 'You' : partnerName}
-                        </div>
-
-                        {/* Tap to swap indicator */}
-                        <div className="absolute top-2 left-2 px-2 py-1 bg-purple-600/80 backdrop-blur-sm rounded text-[10px] font-medium border border-purple-400/30 opacity-0 hover:opacity-100 transition-opacity">
-                            Tap to swap
-                        </div>
-                    </motion.div>
-
-                </div>
-
-                {/* Enhanced Controls Bar */}
-                <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-8 bg-gradient-to-t from-black/95 via-black/60 to-transparent flex flex-col items-center gap-6 z-30 pb-8 sm:pb-10">
-
-                    {/* Main Actions */}
-                    <div className="flex items-center gap-3 sm:gap-5">
-
-                        <button
-                            onClick={toggleMute}
-                            title={isMuted ? 'Unmute' : 'Mute'}
-                            className={`group relative p-4 sm:p-5 rounded-2xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-2xl ${isMuted
-                                ? 'bg-gradient-to-br from-red-500 to-red-600 text-white hover:from-red-400 hover:to-red-500 shadow-red-500/50'
-                                : 'bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 shadow-black/50'
-                                }`}
-                        >
-                            {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
-                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </button>
-
-                        <button
-                            onClick={toggleVideo}
-                            title={isVideoOff ? 'Turn on camera' : 'Turn off camera'}
-                            className={`group relative p-4 sm:p-5 rounded-2xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-2xl ${isVideoOff
-                                ? 'bg-gradient-to-br from-red-500 to-red-600 text-white hover:from-red-400 hover:to-red-500 shadow-red-500/50'
-                                : 'bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 shadow-black/50'
-                                }`}
-                        >
-                            {isVideoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
-                            <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </button>
-
-                        <button
-                            onClick={switchCamera}
-                            title="Switch camera"
-                            className="md:hidden p-4 sm:p-5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-2xl shadow-black/50"
-                        >
-                            <SwitchCamera className="w-6 h-6" />
-                        </button>
-
-                        {/* Call Actions */}
-                        {status === 'idle' ? (
-                            <button
-                                onClick={handleStartSearch}
-                                className="group relative px-10 py-4 sm:py-5 bg-gradient-to-r from-purple-600 via-purple-500 to-pink-500 rounded-2xl font-black text-lg sm:text-xl shadow-2xl shadow-purple-600/50 hover:shadow-purple-500/60 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center gap-3 overflow-hidden"
+                    {/* PiP Video (Floating) - Shows Local by default, Remote when swapped - Auto-hide with controls */}
+                    <AnimatePresence>
+                        {showControls && (
+                            <motion.div
+                                drag
+                                dragMomentum={false}
+                                dragElastic={0}
+                                dragTransition={{ bounceStiffness: 300, bounceDamping: 20 }}
+                                onDragStart={() => setIsDragging(true)}
+                                onDragEnd={() => {
+                                    // Small delay to prevent onClick from firing
+                                    setTimeout(() => setIsDragging(false), 100);
+                                }}
+                                whileDrag={{ scale: 1.05, cursor: 'grabbing', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}
+                                whileHover={{ scale: 1.02 }}
+                                initial={{ opacity: 0, scale: 0.8, x: 0, y: 0 }}
+                                animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.8 }}
+                                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                                onClick={() => {
+                                    // Only swap if NOT dragging
+                                    if (!isDragging) {
+                                        setIsSwapped(!isSwapped);
+                                        toast.success(isSwapped ? 'Showing stranger in main' : 'Showing you in main', {
+                                            duration: 1500,
+                                            position: 'top-center',
+                                        });
+                                    }
+                                }}
+                                className={`
+                                    absolute z-20 overflow-hidden shadow-2xl border bg-black/90 cursor-grab active:cursor-grabbing
+                                    bottom-36 sm:bottom-40 right-3 sm:right-6
+                                    w-[100px] h-[150px] sm:w-[140px] sm:h-[105px] md:w-[200px] md:h-[133px] lg:w-[240px] lg:h-[160px]
+                                    rounded-2xl backdrop-blur-xl
+                                    ${isSwapped ? 'ring-2 ring-purple-500 border-purple-500/50' : 'border-white/30'}
+                                `}
+                                style={{ touchAction: 'none' }}
                             >
-                                <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-pink-400 opacity-0 group-hover:opacity-20 transition-opacity" />
-                                <Search className="w-6 h-6 animate-pulse" />
-                                <span className="relative z-10">Find Stranger</span>
-                            </button>
-                        ) : (
-                            <div className="flex gap-3 sm:gap-4">
-                                <button
-                                    onClick={() => handleEndCall(true)}
-                                    className="group relative p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white shadow-2xl shadow-red-500/40 hover:shadow-red-500/60 active:scale-95 transition-all duration-300 backdrop-blur-xl"
-                                    title="End call"
-                                >
-                                    <PhoneOff className="w-6 h-6" />
-                                    <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 rounded-2xl transition-opacity" />
-                                </button>
+                                {!isSwapped ? (
+                                    // Default: Show Local Video in PiP (stranger in main)
+                                    localStream && !isVideoOff ? (
+                                        <video
+                                            key="pip-local"
+                                            ref={localPipVideoRef}
+                                            autoPlay
+                                            muted
+                                            playsInline
+                                            className="w-full h-full object-cover transform scale-x-[-1] pointer-events-none"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
+                                            <VideoOff className="w-8 h-8 text-gray-400" />
+                                        </div>
+                                    )
+                                ) : (
+                                    // Swapped: Show Local Video in PiP (stranger in main)
+                                    localStream && !isVideoOff ? (
+                                        <video
+                                            key="pip-local-swapped"
+                                            ref={localPipVideoRef}
+                                            autoPlay
+                                            muted
+                                            playsInline
+                                            className="w-full h-full object-cover transform scale-x-[-1] pointer-events-none"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
+                                            <VideoOff className="w-8 h-8 text-gray-400" />
+                                        </div>
+                                    )
+                                )}
 
-                                <button
-                                    onClick={handleNext}
-                                    className="group relative px-8 py-4 sm:py-5 rounded-2xl bg-gradient-to-r from-white to-gray-100 text-black font-black text-lg sm:text-xl shadow-2xl shadow-white/20 hover:shadow-white/30 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center gap-3 overflow-hidden"
-                                >
-                                    <div className="absolute inset-0 bg-gradient-to-r from-purple-400/20 to-pink-400/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <span className="relative z-10">Next</span>
-                                    <SkipForward className="w-5 h-5 fill-current relative z-10" />
-                                </button>
-                            </div>
+                                {/* Name Tag */}
+                                <div className="absolute bottom-2 left-2 right-2 px-2 py-1 bg-black/70 backdrop-blur-md rounded-lg text-[10px] sm:text-xs font-bold border border-white/20 text-center">
+                                    You
+                                </div>
+
+                                {/* Drag hint - shows on hover */}
+                                <div className="absolute top-2 left-2 right-2 px-2 py-1 bg-purple-600/90 backdrop-blur-md rounded-lg text-[10px] font-semibold border border-purple-400/40 opacity-0 hover:opacity-100 transition-opacity text-center pointer-events-none">
+                                    Drag to move • Tap to swap
+                                </div>
+
+                                {/* Drag indicator dots */}
+                                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 flex gap-1 opacity-0 hover:opacity-30 transition-opacity pointer-events-none">
+                                    <div className="w-1 h-1 bg-white rounded-full"></div>
+                                    <div className="w-1 h-1 bg-white rounded-full"></div>
+                                    <div className="w-1 h-1 bg-white rounded-full"></div>
+                                </div>
+                            </motion.div>
                         )}
+                    </AnimatePresence>
 
-                    </div>
+
                 </div>
+
+                {/* Premium Creator Branding - Bottom Right Corner */}
+                <AnimatePresence>
+                    {showControls && (
+                        <motion.a
+                            href="https://github.com/manish-keer19"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="absolute bottom-20 sm:bottom-24 right-3 sm:right-6 z-30 pointer-events-auto group"
+                            initial={{ x: 100, opacity: 0 }}
+                            animate={{ x: 0, opacity: 1 }}
+                            exit={{ x: 100, opacity: 0 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.98 }}
+                        >
+                            {/* Animated gradient background */}
+                            <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 via-pink-600/20 to-blue-600/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
+
+                            {/* Mobile: Compact Avatar Only */}
+                            <div className="sm:hidden relative flex items-center justify-center w-12 h-12 bg-gradient-to-br from-black/90 via-black/80 to-black/90 backdrop-blur-2xl rounded-full border border-white/10 group-hover:border-purple-500/50 transition-all duration-500 shadow-2xl group-hover:shadow-purple-500/30">
+                                {/* Rotating gradient ring */}
+                                <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 rounded-full opacity-75 blur-sm" style={{ animation: 'spin 3s linear infinite' }}></div>
+
+                                <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-blue-500 p-[2px] shadow-xl">
+                                    <div className="w-full h-full rounded-full bg-black/90 p-[2px]">
+                                        <img
+                                            src="https://github.com/manish-keer19.png"
+                                            alt="Manish Keer"
+                                            className="w-full h-full rounded-full object-cover"
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Verified badge */}
+                                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg border-2 border-black">
+                                    <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                    </svg>
+                                </div>
+                            </div>
+
+
+                        </motion.a>
+                    )}
+                </AnimatePresence>
+
+                {/* Enhanced Controls Bar with Auto-hide */}
+                <AnimatePresence>
+                    {showControls && (
+                        <motion.div
+                            initial={{ y: 100, opacity: 0 }}
+                            animate={{ y: 0, opacity: 1 }}
+                            exit={{ y: 100, opacity: 0 }}
+                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                            className="absolute bottom-0 left-0 right-0 p-4 sm:p-8 bg-gradient-to-t from-black/95 via-black/60 to-transparent flex flex-col items-center gap-6 z-30 pb-8 sm:pb-10"
+                        >
+                            {/* Main Actions */}
+                            <div className="flex items-center gap-3 sm:gap-5">
+
+                                <button
+                                    onClick={toggleMute}
+                                    title={isMuted ? 'Unmute' : 'Mute'}
+                                    className={`group relative p-4 sm:p-5 rounded-2xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-2xl ${isMuted
+                                        ? 'bg-gradient-to-br from-red-500 to-red-600 text-white hover:from-red-400 hover:to-red-500 shadow-red-500/50'
+                                        : 'bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 shadow-black/50'
+                                        }`}
+                                >
+                                    {isMuted ? <MicOff className="w-6 h-6" /> : <Mic className="w-6 h-6" />}
+                                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </button>
+
+                                <button
+                                    onClick={toggleVideo}
+                                    title={isVideoOff ? 'Turn on camera' : 'Turn off camera'}
+                                    className={`group relative p-4 sm:p-5 rounded-2xl backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-2xl ${isVideoOff
+                                        ? 'bg-gradient-to-br from-red-500 to-red-600 text-white hover:from-red-400 hover:to-red-500 shadow-red-500/50'
+                                        : 'bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 shadow-black/50'
+                                        }`}
+                                >
+                                    {isVideoOff ? <VideoOff className="w-6 h-6" /> : <Video className="w-6 h-6" />}
+                                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </button>
+
+                                <button
+                                    onClick={switchCamera}
+                                    title="Switch camera"
+                                    className="md:hidden p-4 sm:p-5 rounded-2xl bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 backdrop-blur-xl transition-all duration-300 active:scale-95 shadow-2xl shadow-black/50"
+                                >
+                                    <SwitchCamera className="w-6 h-6" />
+                                </button>
+
+                                {/* Call Actions */}
+                                {status === 'idle' ? (
+                                    <button
+                                        onClick={handleStartSearch}
+                                        className="group relative px-10 py-4 sm:py-5 bg-gradient-to-r from-purple-600 via-purple-500 to-pink-500 rounded-2xl font-black text-lg sm:text-xl shadow-2xl shadow-purple-600/50 hover:shadow-purple-500/60 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center gap-3 overflow-hidden"
+                                    >
+                                        <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-pink-400 opacity-0 group-hover:opacity-20 transition-opacity" />
+                                        <Search className="w-6 h-6 animate-pulse" />
+                                        <span className="relative z-10">Find Stranger</span>
+                                    </button>
+                                ) : (
+                                    <div className="flex gap-3 sm:gap-4">
+                                        <button
+                                            onClick={() => handleEndCall(true)}
+                                            className="group relative p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-red-500 to-red-600 hover:from-red-400 hover:to-red-500 text-white shadow-2xl shadow-red-500/40 hover:shadow-red-500/60 active:scale-95 transition-all duration-300 backdrop-blur-xl"
+                                            title="End call"
+                                        >
+                                            <PhoneOff className="w-6 h-6" />
+                                            <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 rounded-2xl transition-opacity" />
+                                        </button>
+
+                                        <button
+                                            onClick={handleNext}
+                                            className="group relative px-8 py-4 sm:py-5 rounded-2xl bg-gradient-to-r from-white to-gray-100 text-black font-black text-lg sm:text-xl shadow-2xl shadow-white/20 hover:shadow-white/30 hover:scale-105 active:scale-95 transition-all duration-300 flex items-center gap-3 overflow-hidden"
+                                        >
+                                            <div className="absolute inset-0 bg-gradient-to-r from-purple-400/20 to-pink-400/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                                            <span className="relative z-10">Next</span>
+                                            <SkipForward className="w-5 h-5 fill-current relative z-10" />
+                                        </button>
+                                    </div>
+                                )}
+
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
             </div>
         </div>

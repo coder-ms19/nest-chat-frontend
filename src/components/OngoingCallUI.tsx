@@ -5,7 +5,7 @@ import { useCall } from '../contexts/CallContext';
 import {
     Mic, MicOff, Video, VideoOff, MonitorUp, PhoneOff,
     ZoomIn, ZoomOut, RefreshCw, Minimize2, Maximize2,
-    Users, Clock
+    Users, Clock, Pin, Grid
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -528,62 +528,236 @@ const OneOnOneVideoLayout = ({
     );
 };
 
-// Group Video Grid Component
+// Group Video Grid Component with Pin/Spotlight Feature
 const GroupVideoGrid = ({
     localStream,
     remoteStreams,
     isVideoOff,
     activeCall
-}: any) => (
-    <div className="h-full w-full p-4 md:p-8 grid gap-4 md:gap-6 auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-3 max-w-7xl mx-auto">
-        {/* Remote Videos */}
-        {(Array.from(remoteStreams.entries()) as [string, MediaStream][]).map(([userId, stream]) => (
-            <div key={userId} className="relative w-full h-full min-h-[200px] rounded-3xl overflow-hidden bg-gradient-to-br from-gray-900 to-black shadow-2xl border-2 border-white/10 group hover:border-purple-500/50 transition-all">
-                <video
-                    ref={el => {
-                        if (el && stream && el.srcObject !== stream) {
-                            el.srcObject = stream;
-                        }
-                    }}
-                    autoPlay
-                    playsInline
-                    className="w-full h-full object-contain bg-black"
-                />
-                <div className="absolute bottom-4 left-4 bg-black/60 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/20 shadow-lg">
-                    <span className="text-white text-sm md:text-base font-bold">
-                        {activeCall.participants.find((p: any) => p.userId === userId)?.username || 'Unknown'}
-                    </span>
+}: any) => {
+    const [pinnedUserId, setPinnedUserId] = React.useState<string | null>(null);
+    const [viewMode, setViewMode] = React.useState<'grid' | 'spotlight'>('grid');
+
+    // All participants including local user
+    const allParticipants = [
+        { userId: 'local', stream: localStream, isLocal: true, username: 'You' },
+        ...(Array.from(remoteStreams.entries()) as [string, MediaStream][]).map(([userId, stream]) => ({
+            userId,
+            stream,
+            isLocal: false,
+            username: activeCall.participants.find((p: any) => p.userId === userId)?.username || 'Unknown'
+        }))
+    ];
+
+    const handlePinParticipant = (userId: string) => {
+        if (pinnedUserId === userId) {
+            // Unpin if clicking the same participant
+            setPinnedUserId(null);
+            setViewMode('grid');
+            toast.success('Unpinned participant', { duration: 1500, position: 'top-center' });
+        } else {
+            setPinnedUserId(userId);
+            setViewMode('spotlight');
+            toast.success('Pinned participant', { duration: 1500, position: 'top-center' });
+        }
+    };
+
+    const toggleViewMode = () => {
+        if (viewMode === 'grid') {
+            setViewMode('spotlight');
+            if (!pinnedUserId && allParticipants.length > 0) {
+                setPinnedUserId(allParticipants[0].userId);
+            }
+        } else {
+            setViewMode('grid');
+            setPinnedUserId(null);
+        }
+        toast.success(`Switched to ${viewMode === 'grid' ? 'spotlight' : 'grid'} view`, { 
+            duration: 1500, 
+            position: 'top-center' 
+        });
+    };
+
+    // Spotlight View - One main video with thumbnails
+    if (viewMode === 'spotlight' && pinnedUserId) {
+        const pinnedParticipant = allParticipants.find(p => p.userId === pinnedUserId);
+        const otherParticipants = allParticipants.filter(p => p.userId !== pinnedUserId);
+
+        return (
+            <div className="h-full w-full flex flex-col md:flex-row gap-4 p-4 md:p-6">
+                {/* Main Pinned Video */}
+                <div className="flex-1 relative rounded-3xl overflow-hidden bg-gradient-to-br from-gray-900 to-black shadow-2xl border-2 border-purple-500/70">
+                    {pinnedParticipant?.stream && !(pinnedParticipant.isLocal && isVideoOff) ? (
+                        <video
+                            ref={el => {
+                                if (el && pinnedParticipant.stream && el.srcObject !== pinnedParticipant.stream) {
+                                    el.srcObject = pinnedParticipant.stream;
+                                }
+                            }}
+                            autoPlay
+                            playsInline
+                            muted={pinnedParticipant.isLocal}
+                            className="w-full h-full object-contain bg-black"
+                        />
+                    ) : (
+                        <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-purple-900/50 to-blue-900/50">
+                            <div className="flex flex-col items-center">
+                                <div className="w-32 h-32 md:w-40 md:h-40 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-6xl md:text-7xl text-white font-black shadow-2xl mb-4">
+                                    {pinnedParticipant?.username?.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="text-2xl text-white/70 font-semibold">Camera Off</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Pinned Badge */}
+                    <div className="absolute top-4 left-4 flex items-center gap-2 bg-purple-600/90 backdrop-blur-xl px-4 py-2 rounded-2xl shadow-lg ring-2 ring-purple-400/50">
+                        <Pin className="w-4 h-4 text-white" fill="white" />
+                        <span className="text-white text-sm md:text-base font-black">{pinnedParticipant?.username}</span>
+                    </div>
+
+                    {/* Unpin Button */}
+                    <button
+                        onClick={() => handlePinParticipant(pinnedUserId)}
+                        className="absolute top-4 right-4 p-2 bg-black/60 hover:bg-black/80 backdrop-blur-xl rounded-xl text-white transition-all hover:scale-110 border border-white/20"
+                        title="Unpin"
+                    >
+                        <Pin className="w-5 h-5" />
+                    </button>
+
+                    {/* Toggle View Button */}
+                    <button
+                        onClick={toggleViewMode}
+                        className="absolute bottom-4 right-4 p-3 bg-black/60 hover:bg-purple-600/80 backdrop-blur-xl rounded-xl text-white transition-all hover:scale-110 border border-white/20"
+                        title="Switch to grid view"
+                    >
+                        <Grid className="w-5 h-5" />
+                    </button>
+                </div>
+
+                {/* Thumbnail Strip */}
+                <div className="flex md:flex-col gap-3 overflow-x-auto md:overflow-y-auto md:w-48 lg:w-56 pb-2 md:pb-0">
+                    {otherParticipants.map((participant) => (
+                        <div
+                            key={participant.userId}
+                            onClick={() => handlePinParticipant(participant.userId)}
+                            className="relative flex-shrink-0 w-32 h-24 md:w-full md:h-36 rounded-2xl overflow-hidden bg-gradient-to-br from-gray-900 to-black shadow-xl border-2 border-white/10 hover:border-purple-500/70 cursor-pointer transition-all hover:scale-105 group"
+                        >
+                            {participant.stream && !(participant.isLocal && isVideoOff) ? (
+                                <video
+                                    ref={el => {
+                                        if (el && participant.stream && el.srcObject !== participant.stream) {
+                                            el.srcObject = participant.stream;
+                                        }
+                                    }}
+                                    autoPlay
+                                    playsInline
+                                    muted={participant.isLocal}
+                                    className="w-full h-full object-cover bg-black"
+                                />
+                            ) : (
+                                <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
+                                    <div className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center text-xl text-white font-bold">
+                                        {participant.username?.charAt(0).toUpperCase()}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Hover Overlay */}
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <Pin className="w-6 h-6 text-white" />
+                            </div>
+
+                            {/* Name Tag */}
+                            <div className="absolute bottom-2 left-2 right-2 bg-black/70 backdrop-blur-md px-2 py-1 rounded-lg">
+                                <span className="text-white text-xs font-bold truncate block">
+                                    {participant.username}
+                                </span>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
-        ))}
+        );
+    }
 
-        {/* Local Video */}
-        <div className="relative w-full h-full min-h-[200px] rounded-3xl overflow-hidden bg-gradient-to-br from-purple-900 to-blue-900 shadow-2xl border-2 border-purple-500/50">
-            {!isVideoOff && localStream ? (
-                <video
-                    ref={el => {
-                        if (el && localStream && el.srcObject !== localStream) {
-                            el.srcObject = localStream;
-                        }
-                    }}
-                    autoPlay
-                    playsInline
-                    muted
-                    className="w-full h-full object-contain bg-black"
-                />
-            ) : (
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-20 h-20 md:w-24 md:h-24 rounded-full bg-purple-600/30 text-purple-300 flex items-center justify-center text-3xl md:text-4xl font-black border-2 border-purple-500/50">
-                        You
+    // Grid View - All participants in a grid
+    return (
+        <div className="h-full w-full p-4 md:p-8 relative">
+            {/* View Toggle Button */}
+            <button
+                onClick={toggleViewMode}
+                className="absolute top-6 right-6 z-10 p-3 bg-black/60 hover:bg-purple-600/80 backdrop-blur-xl rounded-xl text-white transition-all hover:scale-110 border border-white/20 shadow-lg"
+                title="Switch to spotlight view"
+            >
+                <Pin className="w-5 h-5" />
+            </button>
+
+            <div className="h-full w-full grid gap-4 md:gap-6 auto-rows-fr grid-cols-1 md:grid-cols-2 lg:grid-cols-3 max-w-7xl mx-auto">
+                {allParticipants.map((participant) => (
+                    <div
+                        key={participant.userId}
+                        onClick={() => handlePinParticipant(participant.userId)}
+                        className={`relative w-full h-full min-h-[200px] rounded-3xl overflow-hidden shadow-2xl border-2 cursor-pointer transition-all group ${
+                            participant.isLocal
+                                ? 'bg-gradient-to-br from-purple-900 to-blue-900 border-purple-500/50 hover:border-purple-500'
+                                : 'bg-gradient-to-br from-gray-900 to-black border-white/10 hover:border-purple-500/50'
+                        }`}
+                    >
+                        {participant.stream && !(participant.isLocal && isVideoOff) ? (
+                            <video
+                                ref={el => {
+                                    if (el && participant.stream && el.srcObject !== participant.stream) {
+                                        el.srcObject = participant.stream;
+                                    }
+                                }}
+                                autoPlay
+                                playsInline
+                                muted={participant.isLocal}
+                                className="w-full h-full object-contain bg-black"
+                            />
+                        ) : (
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <div className={`w-20 h-20 md:w-24 md:h-24 rounded-full flex items-center justify-center text-3xl md:text-4xl font-black border-2 ${
+                                    participant.isLocal
+                                        ? 'bg-purple-600/30 text-purple-300 border-purple-500/50'
+                                        : 'bg-gray-700/30 text-gray-300 border-gray-500/50'
+                                }`}>
+                                    {participant.username?.charAt(0).toUpperCase()}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Pin Overlay on Hover */}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                            <div className="bg-purple-600 p-3 rounded-full shadow-lg">
+                                <Pin className="w-6 h-6 text-white" />
+                            </div>
+                        </div>
+
+                        {/* Name Tag */}
+                        <div className={`absolute bottom-4 left-4 backdrop-blur-xl px-4 py-2 rounded-2xl shadow-lg ${
+                            participant.isLocal
+                                ? 'bg-purple-600/80 ring-2 ring-purple-400/30'
+                                : 'bg-black/60 border border-white/20'
+                        }`}>
+                            <span className="text-white text-sm md:text-base font-bold">
+                                {participant.username}
+                            </span>
+                        </div>
+
+                        {/* Click hint */}
+                        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="bg-black/70 backdrop-blur-md px-3 py-1.5 rounded-lg text-xs text-white font-semibold">
+                                Click to pin
+                            </div>
+                        </div>
                     </div>
-                </div>
-            )}
-            <div className="absolute bottom-4 left-4 bg-purple-600/80 backdrop-blur-xl px-4 py-2 rounded-2xl shadow-lg ring-2 ring-purple-400/30">
-                <span className="text-white text-sm md:text-base font-black">You</span>
+                ))}
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 // Audio Call UI Component
 const AudioCallUI = ({ activeCall, remoteStreams, callDuration }: any) => (
