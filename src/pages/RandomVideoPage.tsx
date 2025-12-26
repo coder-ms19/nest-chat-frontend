@@ -594,7 +594,12 @@ const RandomVideoPage = () => {
                             status === 'connected' && remoteStream ? (
                                 <video
                                     key="main-remote"
-                                    ref={remoteVideoRef}
+                                    ref={el => {
+                                        if (el && remoteStream && el.srcObject !== remoteStream) {
+                                            el.srcObject = remoteStream;
+                                            el.play().catch(console.error);
+                                        }
+                                    }}
                                     autoPlay
                                     playsInline
                                     className="w-full h-full object-cover"
@@ -626,7 +631,12 @@ const RandomVideoPage = () => {
                             localStream && !isVideoOff ? (
                                 <video
                                     key="main-local"
-                                    ref={localVideoRef}
+                                    ref={el => {
+                                        if (el && localStream && el.srcObject !== localStream) {
+                                            el.srcObject = localStream;
+                                            el.play().catch(console.error);
+                                        }
+                                    }}
                                     autoPlay
                                     muted
                                     playsInline
@@ -683,7 +693,12 @@ const RandomVideoPage = () => {
                                     localStream && !isVideoOff ? (
                                         <video
                                             key="pip-local"
-                                            ref={localPipVideoRef}
+                                            ref={el => {
+                                                if (el && localStream && el.srcObject !== localStream) {
+                                                    el.srcObject = localStream;
+                                                    el.play().catch(console.error);
+                                                }
+                                            }}
                                             autoPlay
                                             muted
                                             playsInline
@@ -695,15 +710,19 @@ const RandomVideoPage = () => {
                                         </div>
                                     )
                                 ) : (
-                                    // Swapped: Show Local Video in PiP (stranger in main)
-                                    localStream && !isVideoOff ? (
+                                    // Swapped: Show Remote Video in PiP (you in main)
+                                    status === 'connected' && remoteStream ? (
                                         <video
-                                            key="pip-local-swapped"
-                                            ref={localPipVideoRef}
+                                            key="pip-remote-swapped"
+                                            ref={el => {
+                                                if (el && remoteStream && el.srcObject !== remoteStream) {
+                                                    el.srcObject = remoteStream;
+                                                    el.play().catch(console.error);
+                                                }
+                                            }}
                                             autoPlay
-                                            muted
                                             playsInline
-                                            className="w-full h-full object-cover transform scale-x-[-1] pointer-events-none"
+                                            className="w-full h-full object-cover pointer-events-none"
                                         />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
@@ -714,7 +733,7 @@ const RandomVideoPage = () => {
 
                                 {/* Name Tag */}
                                 <div className="absolute bottom-2 left-2 right-2 px-2 py-1 bg-black/70 backdrop-blur-md rounded-lg text-[10px] sm:text-xs font-bold border border-white/20 text-center">
-                                    You
+                                    {!isSwapped ? 'You' : partnerName}
                                 </div>
 
                                 {/* Drag hint - shows on hover */}
@@ -735,51 +754,7 @@ const RandomVideoPage = () => {
 
                 </div>
 
-                {/* Premium Creator Branding - Bottom Right Corner */}
-                <AnimatePresence>
-                    {showControls && (
-                        <motion.a
-                            href="https://github.com/manish-keer19"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="absolute bottom-20 sm:bottom-24 right-3 sm:right-6 z-30 pointer-events-auto group"
-                            initial={{ x: 100, opacity: 0 }}
-                            animate={{ x: 0, opacity: 1 }}
-                            exit={{ x: 100, opacity: 0 }}
-                            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-                            whileHover={{ scale: 1.05 }}
-                            whileTap={{ scale: 0.98 }}
-                        >
-                            {/* Animated gradient background */}
-                            <div className="absolute inset-0 bg-gradient-to-r from-purple-600/20 via-pink-600/20 to-blue-600/20 rounded-2xl blur-xl opacity-0 group-hover:opacity-100 transition-opacity duration-500 animate-pulse"></div>
 
-                            {/* Mobile: Compact Avatar Only */}
-                            <div className="sm:hidden relative flex items-center justify-center w-12 h-12 bg-gradient-to-br from-black/90 via-black/80 to-black/90 backdrop-blur-2xl rounded-full border border-white/10 group-hover:border-purple-500/50 transition-all duration-500 shadow-2xl group-hover:shadow-purple-500/30">
-                                {/* Rotating gradient ring */}
-                                <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-pink-500 to-purple-500 rounded-full opacity-75 blur-sm" style={{ animation: 'spin 3s linear infinite' }}></div>
-
-                                <div className="relative w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-blue-500 p-[2px] shadow-xl">
-                                    <div className="w-full h-full rounded-full bg-black/90 p-[2px]">
-                                        <img
-                                            src="https://github.com/manish-keer19.png"
-                                            alt="Manish Keer"
-                                            className="w-full h-full rounded-full object-cover"
-                                        />
-                                    </div>
-                                </div>
-
-                                {/* Verified badge */}
-                                <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg border-2 border-black">
-                                    <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                    </svg>
-                                </div>
-                            </div>
-
-
-                        </motion.a>
-                    )}
-                </AnimatePresence>
 
                 {/* Enhanced Controls Bar with Auto-hide */}
                 <AnimatePresence>
