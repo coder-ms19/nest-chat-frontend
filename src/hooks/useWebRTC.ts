@@ -34,6 +34,7 @@ export interface ActiveCall {
     initiator?: CallParticipant;
     participants: CallParticipant[];
     status: 'calling' | 'ringing' | 'active' | 'ended';
+    conversationId?: string;
 }
 
 export interface IncomingCall {
@@ -346,9 +347,6 @@ export const useWebRTC = (userId: string, username: string) => {
     /**
      * Handle received offer
      */
-    /**
-     * Handle received offer
-     */
     const handleReceiveOffer = async (fromUserId: string, offer: RTCSessionDescriptionInit, stream?: MediaStream, callId?: string) => {
         try {
             console.log('Handling offer from:', fromUserId);
@@ -481,6 +479,7 @@ export const useWebRTC = (userId: string, username: string) => {
                         callType,
                         participants: response.call.participants,
                         status: 'calling',
+                        conversationId,
                     });
 
                     // For 1-to-1 calls, immediately create peer connection with the stream and callId
@@ -522,6 +521,7 @@ export const useWebRTC = (userId: string, username: string) => {
                     initiator: incomingCall.initiator,
                     participants: [incomingCall.initiator],
                     status: 'active',
+                    conversationId: incomingCall.conversationId,
                 });
 
                 setIncomingCall(null);
@@ -568,7 +568,11 @@ export const useWebRTC = (userId: string, username: string) => {
             return;
         }
 
-        socket.emit('call:end', { callId: activeCall.callId });
+        if (activeCall.callType.includes('GROUP')) {
+            socket.emit('group-call:leave', { callId: activeCall.callId });
+        } else {
+            socket.emit('call:end', { callId: activeCall.callId });
+        }
         cleanupCall();
     };
 

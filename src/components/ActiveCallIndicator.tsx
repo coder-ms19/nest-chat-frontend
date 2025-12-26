@@ -15,13 +15,19 @@ export const ActiveCallIndicator = () => {
     const { activeCall, endCall } = useCall();
     const { randomCallState, setRandomCallIdle } = useRandomCall();
 
-    // Check if user is on a call page
-    const isOnCallPage = location.pathname.includes('/chat/') || location.pathname === '/random-chat';
+    // Check if user is on the SPECIFIC call page
+    const currentConversationId = location.pathname.match(/\/chat\/([^\/]+)/)?.[1];
+    const isRandomChatPage = location.pathname === '/random-chat';
 
     // Determine if we should show the indicator
     const hasActiveRegularCall = activeCall !== null;
     const hasActiveRandomCall = randomCallState.isActive && randomCallState.status === 'connected';
-    const shouldShow = (hasActiveRegularCall || hasActiveRandomCall) && !isOnCallPage;
+
+    // Show if:
+    // 1. Active Random Call AND NOT on Random Chat Page
+    // 2. Active Regular Call AND NOT on the specific Conversation Page of that call
+    const shouldShow = (hasActiveRandomCall && !isRandomChatPage) ||
+        (hasActiveRegularCall && activeCall?.conversationId !== currentConversationId);
 
     const handleReturnToCall = () => {
         if (hasActiveRandomCall) {
