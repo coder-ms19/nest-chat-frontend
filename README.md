@@ -1,74 +1,66 @@
-# React + TypeScript + Vite
+# Connect without Boundaries - NextGen Social Platform
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Welcome to the frontend repository of **SocialApp**, a cutting-edge social media platform designed for real-time connection. Connect with strangers worldwide via random video chats, manage private conversations, and experience crystal-clear audio/video calls—all wrapped in a premium, modern dark-mode UI.
 
-Currently, two official plugins are available:
+## 🚀 Key Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+*   **Random Video Chat**: Instant P2P video matching with users globally. Optimized for low latency.
+*   **Complete Communication Suite**:
+    *   **Private 1:1 Chat**: Secure direct messaging.
+    *   **Group Chat**: Create and manage unlimited group conversations.
+    *   **HD Audio/Video Calls**: High-quality signaling for seamless calls.
+    *   **Rich Media Sharing**: Share images, videos, and files.
+*   **Modern UI/UX**:
+    *   **Dark Mode First**: Sleek, professional aesthetic using Tailwind CSS.
+    *   **Glassmorphism**: Premium transparency effects.
+    *   **Smooth Animations**: Powered by Framer Motion for engaging interactions.
+*   **Secure Authentication**: Integrated with Google, GitHub, and secure Email/Password (JWT).
 
-## React Compiler
+## 🛠️ Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+*   **Framework**: React (Vite)
+*   **Language**: TypeScript
+*   **Styling**: Tailwind CSS
+*   **Animations**: Framer Motion
+*   **Real-time**: Socket.io-client
+*   **WebRTC**: Native WebRTC API (mesh/star hybrid logic handled client-side with backend signaling)
+*   **Icons**: Lucide React
+*   **Notifications**: Sonner
 
-## Expanding the ESLint configuration
+## 📦 Installation & Setup
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+1.  **Clone the repository** (if you haven't already):
+    ```bash
+    git clone <repository-url>
+    cd frontend
+    ```
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+2.  **Install Dependencies**:
+    ```bash
+    npm install
+    ```
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+3.  **Environment Configuration**:
+    Create a `.env` file in the root of the frontend directory:
+    ```env
+    VITE_API_URL=http://localhost:3000
+    VITE_SOCKET_URL=http://localhost:3000
+    # Add other provider IDs if needed
+    ```
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+4.  **Run Development Server**:
+    ```bash
+    npm run dev
+    ```
+    The app will behave live at `http://localhost:5173`.
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🏗️ Project Structure
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+*   `/src/components`: Reusable UI components (Buttons, Inputs, Navbar).
+*   `/src/pages`: Main views (Home, Login, Register, Chat, RandomVideoPage).
+*   `/src/services`: API and Socket service layers.
+*   `/src/context`: React Context for global state (Auth, Theme).
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
-# nest-chat-frontend
+## 🤝 Contributing
+
+Contributions are welcome! Please fork the repository and submit a pull request for any enhancements or bug fixes.
